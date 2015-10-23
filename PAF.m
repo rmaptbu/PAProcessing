@@ -269,17 +269,46 @@ end
    %make sure that you increase the subplot no as the no of files increase
   
    
- figure; hold on; 
+  
  %shift_all contains the measured shift obtained by correlating the entire
  %waveform
  shift_all=padarray(shift_all, [0 size(maxprofile_interp,1)-1], ...
      'symmetric', 'post');
- for i=1:number_of_files; subplot(4,4,i);     
-     plot([maxprofile_interp(:,i), shift_all(i,:)'], 'Color', [0, 0, 0]);
-%      plot(shift_all(i,:)', 'Color', [1 0 0]);
-%      set(gca, 'Color', 'None');
+ %% create plot
+ figure;
+ y_pos=0;
+ x_pos=0;
+ ncol=4;
+ nrow=3;
+ plotsizeX=0.5/ncol;
+ plotsizeY=0.5/nrow;
+ for i=1:number_of_files;     
+     if ~rem(i-1,ncol);y_pos=y_pos+1;x_pos=0; end;
+     ax1=axes('Position',...
+         [0.1+x_pos*(plotsizeX+0.1) 1-(plotsizeY+0.1)*y_pos plotsizeX plotsizeY],...
+         'XTickLabel','',...
+         'YTickLabel','shift (ns)');
+     ax2=axes('Position',ax1.Position);
+     plot(ax1,maxprofile_interp(:,i), 'Color', [0, 0, 0]);hold on;
+     plot(ax2,shift_all(i,:)', 'Color', [1, 0, 0]);
+     set(gca, 'Color', 'None','XColor','r','YColor','r',...
+         'XAxisLocation','top',...
+         'YAxisLocation','right',...
+         'Box','off');
      S=strrep(names(i),'_','\_');
      S=S{1};
      S=[S(1:20),' xcorr', num2str(shift_all(i,1))];
      title(S);
+     x_pos=x_pos+1;
  end
+ i=i+1;
+ if ~rem(i-1,ncol);y_pos=y_pos+1;x_pos=0; end;
+ ax1=axes('Position',...
+         [0.1+x_pos*(plotsizeX+0.1) 1-(plotsizeY+0.1)*y_pos plotsizeX plotsizeY],...
+         'XTickLabel','',...
+         'YTickLabel','shift (ns)');
+ plot(pressure(:,1));hold on;
+ for i=1:jmax-1;
+     plot(ax1,N+i*q:N+i*q+49,pressure(N+i*q:N+i*q+49,1),...
+         'LineWidth',2,'Color',[i/jmax,.5-i/(jmax*2),1-i/jmax]);
+ end;hold off;

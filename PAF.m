@@ -8,18 +8,17 @@ cd(basepath)
 cases=struct2cell(dir);  % get a list of the file names
 cases=cases(1,3:end);
 
-%names: it is important that the same number of symbols are in every
-%filename. add " "(space) after filename to make sure.
+% names: it is important that the same number of symbols are in every
+% filename. add " "(space) after filename to make sure.
 names=cellstr(['rate_-0.1_4.0sep_full_16.300trig_10files_3.csv  ';
     'rate_-0.1_8.0sep_full_16.300trig_10files_0.csv  ';
     'rate_-0.1_12.0sep_full_16.300trig_10files_1.csv ';
     'rate_-0.1_16.0sep_full_16.300trig_10files_3.csv ';
     'rate_-0.1_20.0sep_full_16.300trig_10files_0.csv ';
-    'rate_-0.1_40.0sep_full_16.300trig_10files_0.csv ';
-    'rate_-0.1_50.0sep_full_16.300trig_10files_0.csv ';
+    'rate_-0.1_40.0sep_full_16.300trig_10files_0.csv ';   
     'rate_-0.1_60.0sep_full_16.300trig_10files_0.csv ';
     'rate_-0.1_80.0sep_full_16.300trig_10files_0.csv ']);
-
+% 
 % names=cellstr(['rate_-0.20_2.0sep_full_16.300trig_1files_5.csv  ';
 %     'rate_-0.20_4.0sep_full_16.300trig_1files_4.csv  ';
 %     'rate_-0.20_6.0sep_full_16.300trig_1files_3.csv  ';
@@ -280,12 +279,12 @@ end
  x_pos=0;
  ncol=4;
  nrow=3;
- plotsizeX=0.5/ncol;
+ plotsizeX=0.6/ncol;
  plotsizeY=0.5/nrow;
  for i=1:number_of_files;     
      if ~rem(i-1,ncol);y_pos=y_pos+1;x_pos=0; end;
      ax1=axes('Position',...
-         [0.1+x_pos*(plotsizeX+0.1) 1-(plotsizeY+0.1)*y_pos plotsizeX plotsizeY],...
+         [0.1+x_pos*(plotsizeX+0.045) 1-(plotsizeY+0.1)*y_pos plotsizeX plotsizeY],...
          'XTickLabel','',...
          'YTickLabel','shift (ns)');
      ax2=axes('Position',ax1.Position);
@@ -294,20 +293,22 @@ end
      set(gca, 'Color', 'None','XColor','r','YColor','r',...
          'XAxisLocation','top',...
          'YAxisLocation','right',...
-         'Box','off');
+         'Box','off',...
+         'XLim', ax1.XLim,'YLim',ax1.YLim,... 'XTick',[],'YTick',[],...
+         'XColor', [0 0 0], 'YColor', [0 0 0]);
      S=strrep(names(i),'_','\_');
      S=S{1};
-     S=[S(1:20),' xcorr', num2str(shift_all(i,1))];
+     S=[S(1:20),'\ xcorr', num2str(shift_all(i,1))];
      title(S);
      x_pos=x_pos+1;
  end
  i=i+1;
  if ~rem(i-1,ncol);y_pos=y_pos+1;x_pos=0; end;
  ax1=axes('Position',...
-         [0.1+x_pos*(plotsizeX+0.1) 1-(plotsizeY+0.1)*y_pos plotsizeX plotsizeY],...
+         [0.1+x_pos*(plotsizeX+0.1) 1-(plotsizeY+0.1)*y_pos plotsizeX*2 plotsizeY],...
          'XTickLabel','',...
          'YTickLabel','shift (ns)');
- plot(pressure(:,1));hold on;
+ plot(pressure(:,1),'Color',[0 0 0]);hold on;
  for i=1:jmax-1;
      plot(ax1,N+i*q:N+i*q+49,pressure(N+i*q:N+i*q+49,1),...
          'LineWidth',2,'Color',[i/jmax,.5-i/(jmax*2),1-i/jmax]);

@@ -1,54 +1,65 @@
 clear;
+%% General Setup
+draw=0; %only works with time_gating=1
+remove_outliers=0;
+time_gating=0;
+dt=0.25; %sampling interval in ns
+lowF=250;
+sampling_rate = 4000; %samples per microsecond
+lowpass = 1;
+wallfilter = 1;
+
+%% Read files
 % path for PA data
 basepath=...
 '/Users/Thore/Documents/MATLAB/PAProcessing/JosData/raw/';   
 cd(basepath)
-cases=struct2cell(dir);  % get a list of the file names
-cases=cases(1,3:end);
+clearvars basepath 
 
-names=cellstr(['rate_-0.20_2.0sep_full_16.300trig_1files_5.csv  ';
-    'rate_-0.20_4.0sep_full_16.300trig_1files_4.csv  ';
-    'rate_-0.20_6.0sep_full_16.300trig_1files_3.csv  ';
-    'rate_-0.20_8.0sep_full_16.300trig_1files_2.csv  ';
-    'rate_-0.20_10.0sep_full_16.300trig_1files_1.csv ';
-    'rate_-0.20_15.0sep_full_16.300trig_1files_6.csv ';
-    'rate_-0.20_20.0sep_full_16.300trig_1files_7.csv ';
-    'rate_-0.20_30.0sep_full_16.300trig_1files_9.csv ';
-    'rate_-0.20_40.0sep_full_16.300trig_1files_10.csv']);
+%Read files that were accepted
+fileID = fopen('velocitymeasurements_250MHz_peak0_Interpolant.csv','r');
+formatSpec = '%f %f %f %f %f %f %f %f %f %f %f %f Good result';
+% 1   Dial/rate (ml/h)
+% 2   Record number
+% 3   Number of files
+% 4   Known velocity (mm/s)
+% 5   Known resolution (mm/s)
+% 6   Measured velocity from fit to xcorr peak (mm/s)
+% 7   Measured resolution from fit to xcorr peak (mm/s)
+% 8   Measured pulse separation (ms)
+% 9   Theoretical resolution based on oscilloscope sampling interval (mm/s)
+% 10  Amplitude of selected peak
+% 11  Amplitude of selected peak relative to the next largest peak
+% 12  Amplitude of selected peak relative to the RMS of the xcorr amplitude
+% 13  Quality of result (options: "Good result", Default; "Bad result 
+% (incorrect pulse sep - laser misfiring)"; "Bad 
+size = [12 Inf];
+files_raw=fscanf(fileID,formatSpec, size); clearvars size;
+fclose(fileID);
 
-% %Read files that were accepted
-% fileID = fopen('velocitymeasurements_full_peak0_Interpolant.csv','r');
-% formatSpec = '%f %f %f %f %f %f %f %f %f %f %f %f Good result';
-% % 1   Dial/rate (ml/h)
-% % 2   Record number
-% % 3   Number of files
-% % 4   Known velocity (mm/s)
-% % 5   Known resolution (mm/s)
-% % 6   Measured velocity from fit to xcorr peak (mm/s)
-% % 7   Measured resolution from fit to xcorr peak (mm/s)
-% % 8   Measured pulse separation (ms)
-% % 9   Theoretical resolution based on oscilloscope sampling interval (mm/s)
-% % 10  Amplitude of selected peak
-% % 11  Amplitude of selected peak relative to the next largest peak
-% % 12  Amplitude of selected peak relative to the RMS of the xcorr amplitude
-% % 13  Quality of result (options: "Good result", Default; "Bad result 
-% % (incorrect pulse sep - laser misfiring)"; "Bad 
-% size = [12 Inf];
-% files_raw=fscanf(fileID,formatSpec, size);
-% fclose(fileID);
 %Convert files_raw into filenames
+names={};
+for i=1:size(files_raw,2)
+    if files_raw(1,i)
+        minus='-';
+    else
+        minus='';
+    end
+    if files_raw(2,i)==1
+    str=['rate_',minus,num2str(files_raw(1,i)),'_0.5sep_250Mhz_12.764trig_',...
+        num2str(files_raw(3,i)),'files_',...
+        num2str(files_raw(2,i)),'.csv'];
+    names=[names,str];
+    end
+end
+clearvars files_raw str minus formatSpec fileID;
 
-% names=cellstr('rate_+15_0.5sep_250MHz_14.012trig_5files_')
+%% analyse each file
+number_of_files=length(names);
 maxprofile=[];
 maxprofile_interp=[];
 shift_all=[];
-draw=1; %only works with time_gating=1
-remove_outliers=1;
-time_gating=1;
-dt=0.25; %sampling interval in ns
-number_of_files=length(names);
-
-for u=7%1:number_of_files;
+for u=1:number_of_files;
     display(u);
     filename=names{u};
     
@@ -69,8 +80,6 @@ for u=7%1:number_of_files;
         
         %Filter
         order=2;
-        lowF=250;
-        sampling_rate = 4000;
         [b,a]=butter(order,lowF/sampling_rate*2,'low');
         d1 = filter(b,a,dd);
         d1r = wrev(d1);
@@ -79,10 +88,45 @@ for u=7%1:number_of_files;
         
         pressure(1:5000,i)= dd;
     end 
-    clear('all_points','dd','d1','d1r','d1','b','a');
-       
-    %% XCORR
+    clear('all_points','dd','d1','d1r','d1','b','a',...
+        'd2','order','x');
     meansignal=squeeze(mean(pressure,2));
+    %% Filtering
+    %lowpass
+    if lowpass
+        %pass band frequency in rad/sample
+        Fp=20; %enter in MHz
+        Fp=Fp*2*pi/sampling_rate; %sampling in samples per microscond
+        %stop band frequency in rad/sample
+        Fst=2; %in Mhz
+        Fst=Fst*2*pi/sampling_rate;
+        d = fdesign.highpass('N,Fst,Fp',3,Fst,Fp);
+            % % Ap ? amount of ripple allowed in the pass band in decibels
+            % (the default units). Also called Apass.
+            % % Ast ? attenuation in the stop band in decibels
+            % (the default units). Also called Astop.
+            % % F3db ? cutoff frequency for the point 3 dB point below the
+            % passband value. Specified in normalized frequency units.
+            % % Fc ? cutoff frequency for the point 6 dB point below the
+            % passband value. Specified in normalized frequency units.
+            % % Fp ? frequency at the start of the pass band. Specified in
+            % normalized frequency units. Also called Fpass.
+            % % Fst ? frequency at the end of the stop band. Specified in
+            % normalized frequency units. Also called Fstop.
+            % % N ? filter order.
+            % % Na and Nb are the order of the denominator and numerator.
+        hd = design(d,'iirlpnorm');
+        for i=1:size(pressure,2)            
+            pressure_lowp(:,i) = filter(hd,pressure(:,i));
+%             d1r = wrev(d1);
+%             d2 = filter(hd,d1r);
+%             pressure_lowp(:,i) = wrev(d2);
+        end
+    end
+    if wallfilter
+    end
+    figure; hold on; plot(pressure(:,1));plot(pressure_lowp(:,1));
+    %% XCORR
     %cross correlate all signal and normalise by maximum
     for i=1:2:size(pressure,2)-1;
         xcorrs(:,(i+1)/2)=xcorr(pressure(:,i),pressure(:,i+1),'biased');
@@ -90,7 +134,6 @@ for u=7%1:number_of_files;
         %xcorrs_norm: normalised xcorr of all pairs
         %xcorrs_norm(xcorr_value, Pair_index)        
     end
-    
     
     %% find maximum of x-correlation of entire waveform
     %take average of all normalises cross correlations and find position of
@@ -255,7 +298,7 @@ for u=7%1:number_of_files;
         end ;
     end
 end  
-
+clearvars u
 %% create summary plots..
 %string match separation
 expr='rate_-[\d.]+_[\d.]+';
@@ -269,7 +312,7 @@ sep_exp=sep*1.04E-1;
 
  %shift_all contains the measured shift obtained by correlating the entire
  %waveform
- shift_all_E=padarray(shift_all, [0 size(maxprofile_interp,1)-1], ...
+shift_all_E=padarray(shift_all, [0 size(maxprofile_interp,1)-1], ...
      'symmetric', 'post'); 
  
  %% create plot

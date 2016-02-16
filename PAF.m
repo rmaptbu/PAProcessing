@@ -1,33 +1,20 @@
 clear;
 % path for PA data
 basepath=...
-'/Users/Thore/Documents/PIVLabData/oct10_10muSpheres_400muTube/PA/';  
-% basepath=...
-% '/Users/Thore/Documents/PIVLabData/07.19_10muSpheresTween_400muTube_3.62kpa/';  
+'/Users/Thore/Documents/MATLAB/PAProcessing/JosData/raw/';   
 cd(basepath)
 cases=struct2cell(dir);  % get a list of the file names
 cases=cases(1,3:end);
 
-% names: it is important that the same number of symbols are in every
-% filename. add " "(space) after filename to make sure.
-names=cellstr(['rate_-0.1_4.0sep_full_16.300trig_10files_3.csv  ';
-    'rate_-0.1_8.0sep_full_16.300trig_10files_0.csv  ';
-    'rate_-0.1_12.0sep_full_16.300trig_10files_1.csv ';
-    'rate_-0.1_16.0sep_full_16.300trig_10files_3.csv ';
-    'rate_-0.1_20.0sep_full_16.300trig_10files_0.csv ';
-    'rate_-0.1_40.0sep_full_16.300trig_10files_0.csv ';   
-    'rate_-0.1_60.0sep_full_16.300trig_10files_0.csv ';
-    'rate_-0.1_80.0sep_full_16.300trig_10files_0.csv ']);
-% 
-% names=cellstr(['rate_-0.20_2.0sep_full_16.300trig_1files_5.csv  ';
-%     'rate_-0.20_4.0sep_full_16.300trig_1files_4.csv  ';
-%     'rate_-0.20_6.0sep_full_16.300trig_1files_3.csv  ';
-%     'rate_-0.20_8.0sep_full_16.300trig_1files_2.csv  ';
-%     'rate_-0.20_10.0sep_full_16.300trig_1files_1.csv ';
-%     'rate_-0.20_15.0sep_full_16.300trig_1files_6.csv ';
-%     'rate_-0.20_20.0sep_full_16.300trig_1files_7.csv ';
-%     'rate_-0.20_30.0sep_full_16.300trig_1files_9.csv ';
-%     'rate_-0.20_40.0sep_full_16.300trig_1files_10.csv']);
+names=cellstr(['rate_-0.20_2.0sep_full_16.300trig_1files_5.csv  ';
+    'rate_-0.20_4.0sep_full_16.300trig_1files_4.csv  ';
+    'rate_-0.20_6.0sep_full_16.300trig_1files_3.csv  ';
+    'rate_-0.20_8.0sep_full_16.300trig_1files_2.csv  ';
+    'rate_-0.20_10.0sep_full_16.300trig_1files_1.csv ';
+    'rate_-0.20_15.0sep_full_16.300trig_1files_6.csv ';
+    'rate_-0.20_20.0sep_full_16.300trig_1files_7.csv ';
+    'rate_-0.20_30.0sep_full_16.300trig_1files_9.csv ';
+    'rate_-0.20_40.0sep_full_16.300trig_1files_10.csv']);
 
 % %Read files that were accepted
 % fileID = fopen('velocitymeasurements_full_peak0_Interpolant.csv','r');
@@ -55,13 +42,13 @@ names=cellstr(['rate_-0.1_4.0sep_full_16.300trig_10files_3.csv  ';
 maxprofile=[];
 maxprofile_interp=[];
 shift_all=[];
-draw=0; %only works with time_gating=1
+draw=1; %only works with time_gating=1
 remove_outliers=1;
 time_gating=1;
 dt=0.25; %sampling interval in ns
 number_of_files=length(names);
 
-for u=1:number_of_files;
+for u=7%1:number_of_files;
     display(u);
     filename=names{u};
     
@@ -98,7 +85,7 @@ for u=1:number_of_files;
     meansignal=squeeze(mean(pressure,2));
     %cross correlate all signal and normalise by maximum
     for i=1:2:size(pressure,2)-1;
-        xcorrs(:,(i+1)/2)=xcorr(pressure(:,i),pressure(:,i+1),'unbiased');
+        xcorrs(:,(i+1)/2)=xcorr(pressure(:,i),pressure(:,i+1),'biased');
         xcorrs_norm(:,(i+1)/2)=xcorrs(:,(i+1)/2)./max(xcorrs(:,(i+1)/2));
         %xcorrs_norm: normalised xcorr of all pairs
         %xcorrs_norm(xcorr_value, Pair_index)        
@@ -134,9 +121,9 @@ for u=1:number_of_files;
     if time_gating    
         %starting point for xcorr
         N=1000;%starting poing
-        q=50;%stepsize
-        w=250; %interrogation windows
-        W=2000; %walking length
+        q=30;%stepsize
+        w=500; %interrogation windows
+        W=3000; %walking length
         jmax=ceil(W/q); %number of plots
         corr_bounds=0.6; %between 0and1.defines size of search for corr peak 
         %assume first pair correlates
@@ -144,7 +131,7 @@ for u=1:number_of_files;
             for j=1:jmax
                 xcorrwindows(1:2*w-1,(i+1)/2,j)=xcorr(...
                     pressure((N+j*q):(N+j*q+w-1),i),...
-                    pressure((N+j*q):(N+j*q+w-1),i+1),'unbiased');
+                    pressure((N+j*q):(N+j*q+w-1),i+1),'biased');
             end
         end
         
@@ -161,7 +148,7 @@ for u=1:number_of_files;
         
         if remove_outliers
             for i=1:length(I);
-                if I(i)<1 || I(i)>w*corr_bounds %peak out of bounds
+                if I(i)<1 || I(i)>w*0.2%corr_bounds %peak out of bounds
                     %play with 1 and 0.6 to adjust bound for outliers
                     if i~=1
                         %replace outlier by previous data point
@@ -239,12 +226,17 @@ for u=1:number_of_files;
         end ;
         
         %all xcorrs
-        subplot(4,2,3:4);hold on
+        subplot(4,2,3:4);
+        %%
+        figure;hold on
         for i=1:jmax-1;
-            plot(squeeze(xcorrwindows_ensemble(:,i)./...
+            fig1=plot(squeeze(xcorrwindows_ensemble(:,i)./...
                 max(abs(xcorrwindows_ensemble(:,i)))),...
-                'Color',[i/jmax,.5-i/(jmax*2),1-i/jmax]);
+                'Color',[.2,.2,.2]);
+            fig1.Color(4)=0.1;
         end
+        hold off        
+         %%
 %         figure;plot(maxprofile);
         %     savefig([filename,'.fig']);
         
@@ -262,35 +254,57 @@ for u=1:number_of_files;
                 'LineWidth',2,'Color',[i/jmax,.5-i/(jmax*2),1-i/jmax]);
         end ;
     end
+end  
+
+%% create summary plots..
+%string match separation
+expr='rate_-[\d.]+_[\d.]+';
+[a, index]=regexp(names,expr);
+for i=1:size(index,1)
+    sep(i) = str2double(names{i}(12:index{i,1}));
 end
-   %adjust the number in for loop to equal number of files anaylsed (n)
-   %make sure subplot has enough space: subplot(X,Y,i)-> X*Y>n
-   %make sure that you increase the subplot no as the no of files increase
-  
-   
-  
+%sep in ms, xcorr peak in ns
+%dT=T*1.04E-7
+sep_exp=sep*1.04E-1;
+
  %shift_all contains the measured shift obtained by correlating the entire
  %waveform
- shift_all=padarray(shift_all, [0 size(maxprofile_interp,1)-1], ...
-     'symmetric', 'post');
+ shift_all_E=padarray(shift_all, [0 size(maxprofile_interp,1)-1], ...
+     'symmetric', 'post'); 
+ 
  %% create plot
  figure;
- 
-for i=1:number_of_files; subplot(4,4,i);     
-     plot(maxprofile_interp(:,i), 'Color', [0, 0, 0]);
+ %adjust the number in for loop to equal number of files anaylsed (n)
+ %make sure subplot has enough space: subplot(X,Y,i)-> X*Y>n
+ %make sure that you increase the subplot no as the no of files increase
+ for i=1:number_of_files; subplot(4,4,i);hold on; box on
+     for j=1:jmax-1;
+         plot(j:j+1,maxprofile_interp(j:j+1,i),...
+             'LineWidth',2,'Color',[j/jmax,.5-j/(jmax*2),1-j/jmax]);
+     end;
      hold on
-     plot(shift_all(i,:)', 'Color', [1 0 0]);
-     S=strrep(names(i),'_',' _');
+     plot(shift_all_E(i,:)', 'Color', [1 0 0]);
+     S=strrep(names(i),'_','\_');
      S=S{1};
-     S=[S(1:20),'  xcorr', num2str(shift_all(i,1))];
+     S=[S(1:21),'xcorr', num2str(shift_all_E(i,1))];
      title(S);
      hold off;
-end
-subplot(4,4,i+1:i+2)
-plot(pressure(:,1),'Color',[0 0 0]);hold on
- for i=1:jmax-1;     
+ end
+ subplot(4,4,i+1:i+2)
+ plot(pressure(:,1),'Color',[0 0 0]);hold on
+ for j=1:jmax-1;
      box on
-     plot(N+i*q:N+i*q+49,pressure(N+i*q:N+i*q+49,1),...
-         'LineWidth',2,'Color',[i/jmax,.5-i/(jmax*2),1-i/jmax]);
+     plot(N+j*q:N+j*q+49,pressure(N+j*q:N+j*q+49,1),...
+         'LineWidth',2,'Color',[j/jmax,.5-j/(jmax*2),1-j/jmax]);
  end;hold off;
+ 
+ subplot(4,4,i+3)
+ scatter(sep, shift_all,'Marker', '*','MarkerFaceColor', [0 0 0],...
+     'MarkerEdgeColor', [0 0 0])
+ hold on
+ box on
+ %plot(sep_exp,sep_exp)
+ set(gca, 'XGrid', 'on', 'YGrid', 'on')
+ xlabel('Pulse Separation (ms)')
+ ylabel('Measured Time Shift (ns)')
 

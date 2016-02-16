@@ -122,17 +122,27 @@ for u=1:number_of_files;
 %             d2 = filter(hd,d1r);
 %             pressure_lowp(:,i) = wrev(d2);
         end
+        clearvars hd d Fst Fp
     end
     if wallfilter
+        meansignal_lowp=squeeze(mean(pressure_lowp,2));
+        pressure_lowp_wall=pressure_lowp-repmat(meansignal_lowp,[1 size(pressure,2)]);
+        pressure_wall=pressure-repmat(meansignal,[1 size(pressure,2)]);
     end
     figure; hold on; plot(pressure(:,1));plot(pressure_lowp(:,1));
     %% XCORR
     %cross correlate all signal and normalise by maximum
     for i=1:2:size(pressure,2)-1;
-        xcorrs(:,(i+1)/2)=xcorr(pressure(:,i),pressure(:,i+1),'biased');
+        xcorrs(:,(i+1)/2)=xcorr(pressure(:,i),pressure(:,i+1),'unbiased');
         xcorrs_norm(:,(i+1)/2)=xcorrs(:,(i+1)/2)./max(xcorrs(:,(i+1)/2));
         %xcorrs_norm: normalised xcorr of all pairs
-        %xcorrs_norm(xcorr_value, Pair_index)        
+        %xcorrs_norm(xcorr_value, Pair_index)   
+        xcorrs_lowp(:,(i+1)/2)=xcorr(pressure_lowp(:,i),pressure_lowp(:,i+1),'unbiased');
+        xcorrs_norm_lowp(:,(i+1)/2)=xcorrs_lowp(:,(i+1)/2)./max(xcorrs_lowp(:,(i+1)/2));
+        xcorrs_wall(:,(i+1)/2)=xcorr(pressure_wall(:,i),pressure_wall(:,i+1),'biased');
+        xcorrs_norm_wall(:,(i+1)/2)=xcorrs_wall(:,(i+1)/2)./max(xcorrs_wall(:,(i+1)/2));
+        xcorrs_lowp_wall(:,(i+1)/2)=xcorr(pressure_lowp_wall(:,i),pressure_lowp_wall(:,i+1),'biased');
+        xcorrs_norm_lowp_wall(:,(i+1)/2)=xcorrs_lowp_wall(:,(i+1)/2)./max(xcorrs_lowp_wall(:,(i+1)/2));
     end
     
     %% find maximum of x-correlation of entire waveform
@@ -258,7 +268,6 @@ for u=1:number_of_files;
             hold off
         end
         
-       
         %Mean signal
         subplot(4,2,1:2)
         plot(meansignal);

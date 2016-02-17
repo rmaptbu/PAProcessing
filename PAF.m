@@ -1,4 +1,4 @@
-function [shift, profile] = PAF(filename, options)
+function [shift, profile, pressure] = PAF(filename, options)
 %unpack options into namespace
 Keys=keys(options);
 for key=Keys
@@ -152,36 +152,39 @@ if time_gating
     end
     
     xcorrwindows_ensemble=squeeze(mean(xcorrwindows,2));
-    [M, I]=max(xcorrwindows_ensemble(w:w+corr_bounds,:),[],1);
+    [M, I]=max(xcorrwindows_ensemble(w-corr_bounds:w+corr_bounds,:),[],1);
     %     [M, I]=max(xcorrwindows_ensemble(w-ceil(w*0.7):w,:),[],1);
     
-    if remove_outliers
-        for i=1:length(I);
-            if I(i)<1 || I(i)>w*0.2 %peak out of bounds
-                %play with 1 and 0.6 to adjust bound for outliers
-                if i~=1
-                    %replace outlier by previous data point
-                    I_0(i)=I_0(i-1);
-                else
-                    I_0(i)=0;
-                end
-                display(['changing ',num2str(i)])
-            else
-                I_0(i)=I(i);
-            end
-        end
-        I=I_0;
-    end
-    maxoffset=w;
+%     if remove_outliers
+%         for i=1:length(I);
+%             if I(i)<1 || I(i)>w*0.6 %peak out of bounds
+%                 %play with 1 and 0.6 to adjust bound for outliers
+%                 if i~=1
+%                     %replace outlier by previous data point
+%                     I_0(i)=I_0(i-1);
+%                 else
+%                     I_0(i)=0;
+%                 end
+%                 display(['changing ',num2str(i)])
+%             else
+%                 I_0(i)=I(i);
+%             end
+%         end
+%         I=I_0;
+%     end
+    offset=w-1-corr_bounds;
     I=I';
     
     %Interpolate location of maximum
-    t=-(w-1)*dt:dt:(w-1)*dt; %map of time points
+    t=-(w-1):(w-1);
+    t=t*dt;
+        %map of time points
     for i=1:size(I,1)
         %create 100+100 points around maximum data point
         %if I=1 then peak is at centre. i.e. need to shift by one
         %to get rid of offset (peak at I-1 in absolute time)
-        tI(i,:) = dt*(I(i)-2):dt/100:dt*(I(i));
+        tI(i,:) = (I(i)+offset-2):1.0/100:(I(i)+offset);
+        tI(i,:) = dt*tI(i,:);
         xcorr_interp(i,:) = ... %100 point interpolation
             interp1(t,xcorrwindows_ensemble(:,i),tI(i,:),'spline');
     end
@@ -191,7 +194,6 @@ if time_gating
     end
     
     profile=xcorr_peak_pos';
-%     MAXPROFILE_INTERP=cat(2,MAXPROFILE_INTERP,xcorr_peak_pos');
 else
     profile = 0;
 end
@@ -221,7 +223,7 @@ if draw
         %max points
         
         for i=j*ppg+1:(j+1)*ppg-1;
-            plot(I(i:i+1)+maxoffset,M(i:i+1),'b-o',...
+            plot(I(i:i+1)+offset,M(i:i+1),'b-o',...
                 'LineWidth',2,'Color',[i/jmax,.5-i/(jmax*2),1-i/jmax]);
         end
         hold off

@@ -5,21 +5,25 @@ options=containers.Map;
 options('dt')=0.25; %sampling interval in ns
 options('sampling_rate') = 4000; %samples per microsecond
 %Filtering options
-options('highpass') = 0; %high pass filter?(freq in Mhz) 0=no filter
+options('highpass') = 10; %high pass filter?(freq in Mhz) 0=no filter
 options('lowpass') = 250; %low pass filter?(freq in Mhz) 0=no filter
-options('wallfilter') = 1; %remove mean signal from all signals?
+options('wallfilter') = 0; %remove mean signal from all signals?
 %Xcorr of entire waveform options
-options('corrmin')=2000;
-options('corrmax')=2500;
+options('corrmin')=1750;
+options('corrmax')=2250;
 %Time Gating options
 options('time_gating')=1;
 options('draw')=0; %only works with time_gating=1
-options('remove_outliers')=0;
+options('remove_outliers')=1; %currently not implemented
 options('N')=1000;%starting poing
 options('q')=30;%stepsize
-options('w')=200; %interrogation windows
+options('w')=200; %interrogation windows (actual length is w-1)
 options('W')=2000; %walking length
-jmax=ceil(options('W')/options('q'));
+N=options('N');
+q=options('q');
+w=options('w');
+W=options('W');
+jmax=ceil(W/q);
 
 %Plotting options
 varying_separation = 0; %pulse sep the controlled variable?
@@ -77,23 +81,46 @@ for i=1:number_of_files;
     display(i);
     filename=names{i};
     %find flow rate from filename
-    [shift, profile]=PAF(filename, options);
+    [shift, profile, pressure]=PAF(filename, options);
     shift_all(:,i)=shift;
     profile_all(:,i)=profile;
 end
-clearvars u
-%% Plotting
-if varying_flowrate
-    %         figure;
-    %         xlabel('Known Rate (ml/h)');
-    %         ylabel('Measured Time Shift (ns)');
-    %         box on; hold on;
-    scatter(shift_all(1,:),shift_all(2,:))
-end
 
 %% create summary plots..
-%string match separation
+%shift_all contains the measured shift obtained by
+%correlating the entire%waveform
+shift_all_E=padarray(shift_all(2,:)', [0 size(profile_all,1)-1], ...
+    'symmetric', 'post');
+figure;
+%adjust the number in for loop to equal number of files anaylsed (n)
+%make sure subplot has enough space: 
+sbX=5;
+sbY=5;
+%make sure that you increase the subplot no as the no of files increase
+for i=1:number_of_files; subplot(sbX,sbY,i);hold on; box on
+    for j=1:jmax-1;
+        plot(j:j+1,profile_all(j:j+1,i),...
+            'LineWidth',2,'Color',[j/jmax,.5-j/(jmax*2),1-j/jmax]);
+    end;
+    hold on
+    plot(shift_all_E(i,:)', 'Color', [1 0 0]);
+    S=strrep(names(i),'_','\_');
+    S=S{1};
+    S=[S(1:21),'xcorr', num2str(shift_all_E(i,1))];
+    title(S);
+    ylim([0 5])
+    hold off;
+end
+subplot(sbX,sbY,i+1:i+2)
+plot(pressure(:,1),'Color',[0 0 0]);hold on
+for j=1:jmax-1;
+    box on
+    plot(N+j*q:N+j*q+49,pressure(N+j*q:N+j*q+49,1),...
+        'LineWidth',2,'Color',[j/jmax,.5-j/(jmax*2),1-j/jmax]);
+end;hold off;
+
 if varying_separation
+    %string match separation
     expr='rate_-[\d.]+_[\d.]+';
     [a, index]=regexp(names,expr);
     for i=1:size(index,1)
@@ -102,37 +129,8 @@ if varying_separation
     %sep in ms, xcorr peak in ns
     %dT=T*1.04E-7
     sep_exp=sep*1.04E-1;
-    
-    %shift_all contains the measured shift obtained by 
-    %correlating the entire%waveform
-    shift_all_E=padarray(shift_all(2,:)', [0 size(profile_all,1)-1], ...
-        'symmetric', 'post');
-    figure;
-    %adjust the number in for loop to equal number of files anaylsed (n)
-    %make sure subplot has enough space: subplot(X,Y,i)-> X*Y>n
-    %make sure that you increase the subplot no as the no of files increase
-    for i=1:number_of_files; subplot(4,4,i);hold on; box on
-        for j=1:jmax-1;
-            plot(j:j+1,profile_all(j:j+1,i),...
-                'LineWidth',2,'Color',[j/jmax,.5-j/(jmax*2),1-j/jmax]);
-        end;
-        hold on
-        plot(shift_all_E(i,:)', 'Color', [1 0 0]);
-        S=strrep(names(i),'_','\_');
-        S=S{1};
-        S=[S(1:21),'xcorr', num2str(shift_all_E(i,1))];
-        title(S);
-        hold off;
-    end
-    subplot(4,4,i+1:i+2)
-    plot(pressure(:,1),'Color',[0 0 0]);hold on
-    for j=1:jmax-1;
-        box on
-        plot(N+j*q:N+j*q+49,pressure(N+j*q:N+j*q+49,1),...
-            'LineWidth',2,'Color',[j/jmax,.5-j/(jmax*2),1-j/jmax]);
-    end;hold off;
-    
-    subplot(4,4,i+3)
+
+    subplot(sbX,sbY,i+3)
     scatter(sep, shift_all,'Marker', '*','MarkerFaceColor', [0 0 0],...
         'MarkerEdgeColor', [0 0 0])
     hold on
@@ -141,5 +139,12 @@ if varying_separation
     set(gca, 'XGrid', 'on', 'YGrid', 'on')
     xlabel('Pulse Separation (ms)')
     ylabel('Measured Time Shift (ns)')
+end
+if varying_flowrate
+    subplot(sbX,sbY,i+3)
+    scatter(shift_all(1,:),shift_all(2,:))
+    xlabel('Known Rate (ml/h)');
+    ylabel('Measured Time Shift (ns)');
+    box on;
 end
 cd('/Users/Thore/Documents/MATLAB/PAProcessing/');

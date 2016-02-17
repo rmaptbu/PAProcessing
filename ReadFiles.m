@@ -12,7 +12,7 @@ options('wallfilter') = 1; %remove mean signal from all signals?
 options('corrmin')=2000;
 options('corrmax')=2500;
 %Time Gating options
-options('time_gating')=0;
+options('time_gating')=1;
 options('draw')=0; %only works with time_gating=1
 options('remove_outliers')=0;
 options('N')=1000;%starting poing
@@ -84,10 +84,10 @@ end
 clearvars u
 %% Plotting
 if varying_flowrate
-%         figure;
-%         xlabel('Known Rate (ml/h)');
-%         ylabel('Measured Time Shift (ns)');
-%         box on; hold on;
+    %         figure;
+    %         xlabel('Known Rate (ml/h)');
+    %         ylabel('Measured Time Shift (ns)');
+    %         box on; hold on;
     scatter(shift_all(1,:),shift_all(2,:))
 end
 
@@ -103,19 +103,17 @@ if varying_separation
     %dT=T*1.04E-7
     sep_exp=sep*1.04E-1;
     
-    %shift_all contains the measured shift obtained by correlating the entire
-    %waveform
-    shift_all_E=padarray(shift, [0 size(profile,1)-1], ...
+    %shift_all contains the measured shift obtained by 
+    %correlating the entire%waveform
+    shift_all_E=padarray(shift_all(2,:)', [0 size(profile_all,1)-1], ...
         'symmetric', 'post');
-    
-    %% create plot
     figure;
     %adjust the number in for loop to equal number of files anaylsed (n)
     %make sure subplot has enough space: subplot(X,Y,i)-> X*Y>n
     %make sure that you increase the subplot no as the no of files increase
     for i=1:number_of_files; subplot(4,4,i);hold on; box on
         for j=1:jmax-1;
-            plot(j:j+1,profile(j:j+1,i),...
+            plot(j:j+1,profile_all(j:j+1,i),...
                 'LineWidth',2,'Color',[j/jmax,.5-j/(jmax*2),1-j/jmax]);
         end;
         hold on
@@ -135,7 +133,7 @@ if varying_separation
     end;hold off;
     
     subplot(4,4,i+3)
-    scatter(sep, shift,'Marker', '*','MarkerFaceColor', [0 0 0],...
+    scatter(sep, shift_all,'Marker', '*','MarkerFaceColor', [0 0 0],...
         'MarkerEdgeColor', [0 0 0])
     hold on
     box on

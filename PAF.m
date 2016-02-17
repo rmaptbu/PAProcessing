@@ -130,9 +130,11 @@ shift=[flow_rate, shift];
 
 clear('max_shift_i','meanxcorr', 'xcorrs');
 %% Time gating
+jmax=ceil(W/q);
 if time_gating
     %starting point for xcorr
-    corr_bounds=ceil(0.5*w); %between 0and1.defines size of search for corr peak
+    corr_bounds=ceil(0.5*w); 
+    %between 0and1.defines size of search for corr peak
     %assume first pair correlates
     for i=1:2:size(pressure,2)-1;
         for j=1:jmax

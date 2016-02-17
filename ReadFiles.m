@@ -7,11 +7,19 @@ options('sampling_rate') = 4000; %samples per microsecond
 %Filtering options
 options('highpass') = 0; %high pass filter?(freq in Mhz) 0=no filter
 options('lowpass') = 250; %low pass filter?(freq in Mhz) 0=no filter
-options('wallfilter') = 0; %remove mean signal from all signals?
+options('wallfilter') = 1; %remove mean signal from all signals?
+%Xcorr of entire waveform options
+options('corrmin')=2000;
+options('corrmax')=2500;
 %Time Gating options
-options('time_gating')=1;
+options('time_gating')=0;
 options('draw')=0; %only works with time_gating=1
 options('remove_outliers')=0;
+options('N')=1000;%starting poing
+options('q')=30;%stepsize
+options('w')=200; %interrogation windows
+options('W')=2000; %walking length
+jmax=ceil(options('W')/options('q'));
 
 %Plotting options
 varying_separation = 0; %pulse sep the controlled variable?
@@ -71,6 +79,7 @@ for i=1:number_of_files;
     %find flow rate from filename
     [shift, profile]=PAF(filename, options);
     shift_all(:,i)=shift;
+    profile_all(:,i)=profile;
 end
 clearvars u
 %% Plotting

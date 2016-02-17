@@ -81,45 +81,50 @@ if highpass
         %             d2 = filter(hd,d1r);
         %             pressure_lowp(:,i) = wrev(d2);
     end
-    clearvars hd d Fst Fp
 end
 %wallfilter
 if wallfilter
     pressure=pressure-repmat(meansignal,[1 size(pressure,2)]);
 end
+clearvars hd d Fst Fp highpass lowpass wallfilter
 %% XCORR
 %cross correlate all signal and normalise by maximum
-corrmin=2000;
-corrmax=2500;
+
+width=corrmax-corrmin;
 for i=1:2:size(pressure,2)-1;
-    xcorrs(:,(i+1)/2)=xcorr(pressure(:,i+1),pressure(:,i),'biased');
+    xcorrs(:,(i+1)/2)=xcorr(pressure(corrmin:corrmax,i+1),...
+        pressure(corrmin:corrmax,i),'biased');
     xcorrs_norm(:,(i+1)/2)=xcorrs(:,(i+1)/2)./max(xcorrs(:,(i+1)/2));
     %xcorrs_norm: normalised xcorr of all pairs
     %xcorrs_norm(xcorr_value, Pair_index)
 end
+clearvars xcorrs corrmin corrmax
 
 %% find maximum of x-correlation of entire waveform
-%take average of all normalises cross correlations and find position of
+%take average of all normalised cross correlations and find position of
 %maximum
 %"shift" is position of maximum
 [~, shift_i]=max(xcorrs_norm);
 shift_std=std(shift_i); clear('shift_i');
+%ensemble correlation
 meanxcorr=squeeze(mean(xcorrs_norm,2));
 [~, shift]=max(meanxcorr);
 
 %Interpolate location of maximum
-t=-(5000-1)*dt:dt:(5000-1)*dt; %map of time points
+t = -width:width; 
+t = t * dt;%map of time points
 %create 100+100 points around maximum data point
 %if I=1 then peak is at centre. i.e. need to shift by one
 %to get rid of offset (peak at I-1 in absolute time)
-tI = dt*(shift-5002):dt/100:dt*(shift-5000);
+tI = (shift-width-2):1.0/100:(shift-width);
+tI = tI * dt;
 xcorr_interp = ... %100 point interpolation
     interp1(t,meanxcorr,tI,'spline');
 [~,max_pos]=max(xcorr_interp');
 xcorr_peak_pos=tI(max_pos);
 
 
-shift=(shift-5000)*dt;
+shift=(shift-width)*dt;
 shift=[flow_rate, shift];
 %SHIFT_ALL=cat(1,SHIFT_ALL,xcorr_peak_pos);
 
@@ -127,11 +132,6 @@ clear('max_shift_i','meanxcorr', 'xcorrs');
 %% Time gating
 if time_gating
     %starting point for xcorr
-    N=1000;%starting poing
-    q=30;%stepsize
-    w=200; %interrogation windows
-    W=2000; %walking length
-    jmax=ceil(W/q); %number of plots
     corr_bounds=ceil(0.5*w); %between 0and1.defines size of search for corr peak
     %assume first pair correlates
     for i=1:2:size(pressure,2)-1;
@@ -190,6 +190,8 @@ if time_gating
     
     profile=xcorr_peak_pos';
 %     MAXPROFILE_INTERP=cat(2,MAXPROFILE_INTERP,xcorr_peak_pos');
+else
+    profile = 0;
 end
 
 %% PLOTS

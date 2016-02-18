@@ -1,4 +1,4 @@
-function []= ReadFiles(highpass,lowpass,wallfilter)
+function []= ReadFiles(highpass,lowpass,wallfilter,figname)
 %% General Setup
 clear;
 options=containers.Map;
@@ -6,9 +6,9 @@ options=containers.Map;
 options('dt')=0.25; %sampling interval in ns
 options('sampling_rate') = 4000; %samples per microsecond
 %Filtering options
-options('highpass') = 10; %high pass filter?(freq in Mhz) 0=no filter
-options('lowpass') = 250; %low pass filter?(freq in Mhz) 0=no filter
-options('wallfilter') = 1; %remove mean signal from all signals?
+options('highpass') = highpass; %high pass filter?(freq in Mhz) 0=no filter
+options('lowpass') = lowpass; %low pass filter?(freq in Mhz) 0=no filter
+options('wallfilter') = wallfilter; %remove mean signal from all signals?
 %Xcorr of entire waveform options
 options('corrmin')=1750;
 options('corrmax')=2250;
@@ -42,7 +42,7 @@ varying_flowrate = 1; %or is the flow rate being changed?
 basepath=...
     '/Users/Thore/Documents/MATLAB/PAProcessing/JosData/raw/';
 cd(basepath)
-clearvars basepath
+
 
 %Read files that were accepted
 fileID = fopen('velocitymeasurements_250MHz_peak0_Interpolant.csv','r');
@@ -93,13 +93,15 @@ for i=1:number_of_files;
     shift_all(:,i)=shift;
     profile_all(:,i)=profile;
 end
+[shift_all I]=sortrows(shift_all');
+shift_all=shift_all';
 
 %% create summary plots..
 %shift_all contains the measured shift obtained by
 %correlating the entire%waveform
 shift_all_E=padarray(shift_all(2,:)', [0 size(profile_all,1)-1], ...
     'symmetric', 'post');
-figure;
+fig=figure;
 %adjust the number in for loop to equal number of files anaylsed (n)
 %make sure subplot has enough space: 
 sbY=5;
@@ -107,7 +109,7 @@ sbX=4;
 %make sure that you increase the subplot no as the no of files increase
 for i=1:number_of_files; subplot(sbY,sbX,i);hold on; box on
     for j=1:jmax-1;
-        plot(j:j+1,profile_all(j:j+1,i),...
+        plot(j:j+1,profile_all(j:j+1,I(i)),...
             'LineWidth',2,'Color',[j/jmax,.5-j/(jmax*2),1-j/jmax]);
     end;
     hold on
@@ -117,6 +119,7 @@ for i=1:number_of_files; subplot(sbY,sbX,i);hold on; box on
 %     S=[S(1:21),'xcorr', num2str(shift_all_E(i,1))];
     title(num2str(shift_all(1,i)));
     ylim([-5 5])
+    xlim([1 jmax])
     ax=gca;
     ax.YGrid = 'on';
     hold off;
@@ -153,9 +156,10 @@ if varying_separation
 end
 if varying_flowrate
     subplot(sbY,sbX,i+3)
-    scatter(shift_all(1,:),shift_all(2,:))
+    plot(shift_all(1,:),shift_all(2,:),'k.-')
     xlabel('Known Rate (ml/h)');
     ylabel('Measured Time Shift (ns)');
+    xlim([min(shift_all(1,:)) max(shift_all(1,:))]);
     box on;
 end
     str={['highpass = ', num2str(options('highpass')),'Mhz'],...
@@ -165,5 +169,13 @@ end
         ['corrmax = ', num2str(options('corrmax'))]};
     annotation('textbox',[ 1-1/sbX 0.025 1/sbX 1/sbY],...
         'String',str, 'FitBoxToText', 'on');
-
+%set size
+set(fig, 'Position', [100 100 256*sbX 256*sbY]);
+%% save files, return
+%save file
+disp(['saving figure ', figname]);
+cd([basepath,'figures/']);
+set(gcf,'PaperPositionMode','auto')
+print(fig,figname,'-dpng','-r300')
+close(fig);
 cd('/Users/Thore/Documents/MATLAB/PAProcessing/');

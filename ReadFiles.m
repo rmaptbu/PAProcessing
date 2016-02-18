@@ -1,6 +1,5 @@
-function []= ReadFiles(highpass,lowpass,wallfilter,figname)
+function []= ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname)
 %% General Setup
-clear;
 options=containers.Map;
 %Oscilloscope options
 options('dt')=0.25; %sampling interval in ns
@@ -10,8 +9,8 @@ options('highpass') = highpass; %high pass filter?(freq in Mhz) 0=no filter
 options('lowpass') = lowpass; %low pass filter?(freq in Mhz) 0=no filter
 options('wallfilter') = wallfilter; %remove mean signal from all signals?
 %Xcorr of entire waveform options
-options('corrmin')=1750;
-options('corrmax')=2250;
+options('corrmin')=corrmin;
+options('corrmax')=corrmax;
 %Time Gating options
 options('time_gating')=1;
 options('draw')=0; %only works with time_gating=1
@@ -61,8 +60,8 @@ formatSpec = '%f %f %f %f %f %f %f %f %f %f %f %f Good result';
 % 12  Amplitude of selected peak relative to the RMS of the xcorr amplitude
 % 13  Quality of result (options: "Good result", Default; "Bad result
 % (incorrect pulse sep - laser misfiring)"; "Bad
-size = [12 Inf];
-files_raw=fscanf(fileID,formatSpec, size); clearvars size;
+sz = [12 Inf];
+files_raw=fscanf(fileID,formatSpec, sz); clearvars sz;
 fclose(fileID);
 
 %Convert files_raw into filenames
@@ -101,7 +100,7 @@ shift_all=shift_all';
 %correlating the entire%waveform
 shift_all_E=padarray(shift_all(2,:)', [0 size(profile_all,1)-1], ...
     'symmetric', 'post');
-fig=figure;
+fig=figure('Visible','off');
 %adjust the number in for loop to equal number of files anaylsed (n)
 %make sure subplot has enough space: 
 sbY=5;

@@ -32,7 +32,7 @@ for x=5000:5000:size(all_points,1);
     pressure(1:5000,i)=all_points(x-4999:x,2);    
 end
 clear('all_points','x');
-meansignal=squeeze(mean(pressure,2));
+
 %% Filtering
 %lowpass
 if lowpass
@@ -84,6 +84,7 @@ if highpass
 end
 %wallfilter
 if wallfilter
+    meansignal=squeeze(mean(pressure,2));
     pressure=pressure-repmat(meansignal,[1 size(pressure,2)]);
 end
 clearvars hd d Fst Fp highpass lowpass wallfilter
@@ -238,6 +239,7 @@ if draw
     
     %Mean signal
     subplot(4,2,1:2)
+    meansignal=squeeze(mean(pressure,2));
     plot(meansignal);
     hold on;
     for i=1:jmax-1;

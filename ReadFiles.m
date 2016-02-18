@@ -1,3 +1,4 @@
+function []= ReadFiles(highpass,lowpass,wallfilter)
 %% General Setup
 clear;
 options=containers.Map;
@@ -7,7 +8,7 @@ options('sampling_rate') = 4000; %samples per microsecond
 %Filtering options
 options('highpass') = 10; %high pass filter?(freq in Mhz) 0=no filter
 options('lowpass') = 250; %low pass filter?(freq in Mhz) 0=no filter
-options('wallfilter') = 0; %remove mean signal from all signals?
+options('wallfilter') = 1; %remove mean signal from all signals?
 %Xcorr of entire waveform options
 options('corrmin')=1750;
 options('corrmax')=2250;
@@ -15,15 +16,22 @@ options('corrmax')=2250;
 options('time_gating')=1;
 options('draw')=0; %only works with time_gating=1
 options('remove_outliers')=1; %currently not implemented
+options('normalise')=0;
+%Start at N,N+w -> N+q,N+w+q ->...->N+(jmax-1)q,N+(jmax-1)q+w
+%==>> jmax is number of windows
 options('N')=1000;%starting poing
 options('q')=30;%stepsize
-options('w')=200; %interrogation windows (actual length is w-1)
+options('w')=200; %interrogation windows
 options('W')=2000; %walking length
+%Ensure walking length needs to be integer multiple of stepisze
+Rem=rem(options('W'),options('q'))
+options('W')=options('W')-Rem;
 N=options('N');
 q=options('q');
 w=options('w');
 W=options('W');
-jmax=ceil(W/q);
+jmax=W/q;
+assert(~rem(W,q),'W/q not integer');
 
 %Plotting options
 varying_separation = 0; %pulse sep the controlled variable?
@@ -94,24 +102,27 @@ shift_all_E=padarray(shift_all(2,:)', [0 size(profile_all,1)-1], ...
 figure;
 %adjust the number in for loop to equal number of files anaylsed (n)
 %make sure subplot has enough space: 
-sbX=5;
 sbY=5;
+sbX=4;
 %make sure that you increase the subplot no as the no of files increase
-for i=1:number_of_files; subplot(sbX,sbY,i);hold on; box on
+for i=1:number_of_files; subplot(sbY,sbX,i);hold on; box on
     for j=1:jmax-1;
         plot(j:j+1,profile_all(j:j+1,i),...
             'LineWidth',2,'Color',[j/jmax,.5-j/(jmax*2),1-j/jmax]);
     end;
     hold on
     plot(shift_all_E(i,:)', 'Color', [1 0 0]);
-    S=strrep(names(i),'_','\_');
-    S=S{1};
-    S=[S(1:21),'xcorr', num2str(shift_all_E(i,1))];
-    title(S);
-    ylim([0 5])
+%     S=strrep(names(i),'_','\_');
+%     S=S{1};
+%     S=[S(1:21),'xcorr', num2str(shift_all_E(i,1))];
+    title(num2str(shift_all(1,i)));
+    ylim([-5 5])
+    ax=gca;
+    ax.YGrid = 'on';
     hold off;
 end
-subplot(sbX,sbY,i+1:i+2)
+i=(ceil(number_of_files/sbX))*sbX; %go to start of a new row
+subplot(sbY,sbX,i+1:i+2)
 plot(pressure(:,1),'Color',[0 0 0]);hold on
 for j=1:jmax-1;
     box on
@@ -130,7 +141,7 @@ if varying_separation
     %dT=T*1.04E-7
     sep_exp=sep*1.04E-1;
 
-    subplot(sbX,sbY,i+3)
+    subplot(sbY,sbX,i+3)
     scatter(sep, shift_all,'Marker', '*','MarkerFaceColor', [0 0 0],...
         'MarkerEdgeColor', [0 0 0])
     hold on
@@ -141,10 +152,18 @@ if varying_separation
     ylabel('Measured Time Shift (ns)')
 end
 if varying_flowrate
-    subplot(sbX,sbY,i+3)
+    subplot(sbY,sbX,i+3)
     scatter(shift_all(1,:),shift_all(2,:))
     xlabel('Known Rate (ml/h)');
     ylabel('Measured Time Shift (ns)');
     box on;
 end
+    str={['highpass = ', num2str(options('highpass')),'Mhz'],...
+        ['lowpass = ', num2str(options('lowpass')),'Mhz'],...
+        ['wallfilter = ', num2str(options('wallfilter'))],...
+        ['corrmin = ', num2str(options('corrmin'))],...
+        ['corrmax = ', num2str(options('corrmax'))]};
+    annotation('textbox',[ 1-1/sbX 0.025 1/sbX 1/sbY],...
+        'String',str, 'FitBoxToText', 'on');
+
 cd('/Users/Thore/Documents/MATLAB/PAProcessing/');

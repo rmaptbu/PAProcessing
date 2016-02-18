@@ -130,7 +130,8 @@ shift=[flow_rate, shift];
 
 clear('max_shift_i','meanxcorr', 'xcorrs');
 %% Time gating
-jmax=ceil(W/q);
+jmax=W/q;
+assert(~rem(W,q),'W/q not integer');
 if time_gating
     %starting point for xcorr
     corr_bounds=ceil(0.5*w); 
@@ -138,23 +139,29 @@ if time_gating
     %assume first pair correlates
     for i=1:2:size(pressure,2)-1;
         for j=1:jmax
-            xcorrwindows(1:2*w-1,(i+1)/2,j)=xcorr(...
-                pressure((N+j*q):(N+j*q+w-1),i),...
-                pressure((N+j*q):(N+j*q+w-1),i+1),'biased');
+            xcorrwindows(1:2*w+1,(i+1)/2,j)=xcorr(...
+                pressure((N+(j-1)*q):(N+(j-1)*q+w),i+1),...
+                pressure((N+(j-1)*q):(N+(j-1)*q+w),i),'biased');
         end
     end
-    
-    for i=1:length(xcorrwindows(1,:,1))
-        for j=1:length(xcorrwindows(1,1,:))
-            xcorrwindows_norm(:,i,j)=...
-                xcorrwindows(:,i,j)./max(xcorrwindows(:,i,j));
+    %Normalise
+    if normalise
+        for i=1:length(xcorrwindows(1,:,1))
+            for j=1:length(xcorrwindows(1,1,:))
+                xcorrwindows(:,i,j)=...
+                    xcorrwindows(:,i,j)./max(xcorrwindows(:,i,j));
+            end
         end
     end
     
     xcorrwindows_ensemble=squeeze(mean(xcorrwindows,2));
-    [M, I]=max(xcorrwindows_ensemble(w-corr_bounds:w+corr_bounds,:),[],1);
-    %     [M, I]=max(xcorrwindows_ensemble(w-ceil(w*0.7):w,:),[],1);
-    
+    %w+1 is centre
+    [M, I]=max(xcorrwindows_ensemble(w+1-corr_bounds:w+1+corr_bounds,:),...
+        [],1);
+    %adjust I to work with indexing of xcorrwindows_ensemble
+    %coor_bounds+1 is at centre. needs to be shifted to w+1
+    I=I+w-corr_bounds;
+    clearvars xcorrwindows
 %     if remove_outliers
 %         for i=1:length(I);
 %             if I(i)<1 || I(i)>w*0.6 %peak out of bounds
@@ -172,18 +179,18 @@ if time_gating
 %         end
 %         I=I_0;
 %     end
-    offset=w-1-corr_bounds;
+    offset=0;%w-1-corr_bounds; %legacy bit. ignore for now
     I=I';
     
     %Interpolate location of maximum
-    t=-(w-1):(w-1);
+    t=-w:w;
     t=t*dt;
-        %map of time points
+    %map of time points
     for i=1:size(I,1)
         %create 100+100 points around maximum data point
         %if I=1 then peak is at centre. i.e. need to shift by one
         %to get rid of offset (peak at I-1 in absolute time)
-        tI(i,:) = (I(i)+offset-2):1.0/100:(I(i)+offset);
+        tI(i,:) = (I(i)-w-2):1.0/100:(I(i)-w);
         tI(i,:) = dt*tI(i,:);
         xcorr_interp(i,:) = ... %100 point interpolation
             interp1(t,xcorrwindows_ensemble(:,i),tI(i,:),'spline');

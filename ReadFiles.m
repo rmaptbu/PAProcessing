@@ -75,8 +75,8 @@ for i=1:size(files_raw,2)
     if files_raw(2,i)==1
         str=['rate_',minus,...
             num2str(files_raw(1,i)),'_0.5sep_250Mhz_12.764trig_',...
-            num2str(files_raw(3,i)),'files_',...
-            num2str(files_raw(2,i)),'.csv'];
+            num2str(files_raw(3,i)),'files_'];%,...
+            %num2str(files_raw(2,i)),'.csv'];
         names=[names,str];
     end
 end
@@ -95,12 +95,22 @@ end
 [shift_all I]=sortrows(shift_all');
 shift_all=shift_all';
 
+%% find mean of selected region of flowprofile
+fmin=25;
+fmax=35;
+for i=1:number_of_files
+    shift_profile(:,i) = [shift_all(1,i),mean(profile_all(fmin:fmax,i))];
+    %fit parbolic flow profile
+    p = polyfit(fmin:fmax,squeeze(profile_all(fmin:fmax,i))',2);
+    xmin=-p(2)/(2*p(1));
+    shift_poly(:,i) = [shift_all(1,i),p(1)*xmin^2+p(2)*xmin+p(3)];
+end
 %% create summary plots..
 %shift_all contains the measured shift obtained by
 %correlating the entire%waveform
 shift_all_E=padarray(shift_all(2,:)', [0 size(profile_all,1)-1], ...
     'symmetric', 'post');
-fig=figure('Visible','off');
+fig=figure;%('Visible','off');
 %adjust the number in for loop to equal number of files anaylsed (n)
 %make sure subplot has enough space: 
 sbY=5;
@@ -123,6 +133,20 @@ for i=1:number_of_files; subplot(sbY,sbX,i);hold on; box on
     ax.YGrid = 'on';
     hold off;
 end
+%All profiles sumamry
+subplot(sbY,sbX,i+1);hold on; box on
+for j=1:number_of_files;
+    plot(profile_all(:,I(j)),...
+        'LineWidth',1,'Color',[j/number_of_files,...
+        .5-j/(number_of_files*2),1-j/number_of_files]);
+end;
+title('all');
+ylim([-5 5])
+xlim([20 45])
+ax=gca;
+ax.YGrid = 'on';
+hold off;
+
 i=(ceil(number_of_files/sbX))*sbX; %go to start of a new row
 subplot(sbY,sbX,i+1:i+2)
 plot(pressure(:,1),'Color',[0 0 0]);hold on
@@ -132,6 +156,7 @@ for j=1:jmax-1;
         'LineWidth',2,'Color',[j/jmax,.5-j/(jmax*2),1-j/jmax]);
 end;hold off;
 
+subplot(sbY,sbX,i+3); box on; hold on;
 if varying_separation
     %string match separation
     expr='rate_-[\d.]+_[\d.]+';
@@ -142,25 +167,22 @@ if varying_separation
     %sep in ms, xcorr peak in ns
     %dT=T*1.04E-7
     sep_exp=sep*1.04E-1;
-
-    subplot(sbY,sbX,i+3)
     scatter(sep, shift_all,'Marker', '*','MarkerFaceColor', [0 0 0],...
         'MarkerEdgeColor', [0 0 0])
-    hold on
-    box on
     %plot(sep_exp,sep_exp)
     set(gca, 'XGrid', 'on', 'YGrid', 'on')
     xlabel('Pulse Separation (ms)')
     ylabel('Measured Time Shift (ns)')
-end
-if varying_flowrate
-    subplot(sbY,sbX,i+3)
+else %varying_flowrate
     plot(shift_all(1,:),shift_all(2,:),'k.-')
     xlabel('Known Rate (ml/h)');
     ylabel('Measured Time Shift (ns)');
     xlim([min(shift_all(1,:)) max(shift_all(1,:))]);
-    box on;
+    
+    plot(shift_profile(1,:),shift_profile(2,:),'b.-')
+    plot(shift_poly(1,:),shift_poly(2,:),'r.-')
 end
+hold off
     str={['highpass = ', num2str(options('highpass')),'Mhz'],...
         ['lowpass = ', num2str(options('lowpass')),'Mhz'],...
         ['wallfilter = ', num2str(options('wallfilter'))],...

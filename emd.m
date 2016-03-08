@@ -3,12 +3,14 @@ function imf = emd(x)
 % imf = emd(x)
 % Func : findpeaks
 
-x=x(:)';
+x0=x(:)';
+N = length(x);
+n = floor(N/2.0);
+x = extend(x0);
 imf = [];
 while ~ismonotonic(x)
     x1 = x;
     sd = Inf;
-    i=0;
     while (sd > 0.25) ||  ~isimf(x1)
         s1 = getspline(x1);
         s2 = -getspline(-x1);
@@ -17,10 +19,10 @@ while ~ismonotonic(x)
         sd = sum((x1-x2).^2)/sum(x1.^2);
         x1 = x2;
     end
-    imf{end+1} = x1;
+    imf{end+1} = x1(n+1:end-n);
     x          = x-x1;
 end
-imf{end+1} = x;
+imf{end+1} = x(n+1:end-n);
 
 %% FUNCTIONS
 function u = ismonotonic(x)
@@ -30,7 +32,6 @@ if u1 > 0
 else %there are no peaks or troughs
     u = 1;
 end
-
 
 function u = isimf(x) %condition 1 of IMF
 N  = length(x);
@@ -45,4 +46,12 @@ end
 function s = getspline(x)
 N = length(x);
 [~, p] = findpeaks(x);
+%p=[1, p, N]; %clamp spline fitting
 s = spline(p,x(p),1:N);
+
+function xe = extend(x)
+N = length(x);
+n = floor(N/2.0);
+e1 = x(n+1:-1:2).*[0:n-1]/(n-1);
+e2 = x(end-1:-1:end-n).*[n-1:-1:0]/(n-1);
+xe = [e1, x, e2];

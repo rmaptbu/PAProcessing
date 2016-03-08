@@ -3,7 +3,7 @@ function [shift, profile, pressure] = PAF(filename, options)
 Keys=keys(options);
 for key=Keys
     value=options(key{1});
-    evalc([key{1},'=',num2str(value)]);
+    evalc([key{1},'=[',num2str(value),'];']);
 end
 clearvars Keys key value options
 
@@ -15,12 +15,13 @@ flow_rate = str2double(filename(start:fin-7));
 clearvars start fin expr
 
 %load all files into "all_points" (just some variable)
-all_points = csvread([filename,'1.csv']);
-%whatever it says here needs to add up to the full name of the file
-    all_points=cat(1,all_points,csvread([filename,'2.csv']));
-    all_points=cat(1,all_points,csvread([filename,'3.csv']));
-    all_points=cat(1,all_points,csvread([filename,'4.csv']));
-    all_points=cat(1,all_points,csvread([filename,'5.csv']));
+all_points = csvread(filename);
+filename=filename(1:end-5);
+%add all other files with same rates to this dataset
+for i=1:length(other_files);
+    all_points=cat(1,all_points,...
+        csvread([filename,num2str(other_files(i)),'.csv']));
+end
 %
 i=0;
 %take 5000 point, split them off, filter attach to "pressure"
@@ -138,7 +139,6 @@ if time_gating
     corr_bounds=ceil(0.5*w); 
     %between 0and1.defines size of search for corr peak
     %assume first pair correlates
-    tic
     for i=1:2:size(pressure,2)-1;
         for j=1:jmax
             xcorrwindows(1:2*w+1,(i+1)/2,j)=xcorr(...
@@ -146,7 +146,6 @@ if time_gating
                 pressure((N+(j-1)*q):(N+(j-1)*q+w),i),'biased');
         end
     end
-    toc
     %Normalise
     if normalise
         for i=1:length(xcorrwindows(1,:,1))

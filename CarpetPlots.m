@@ -1,17 +1,48 @@
 clear;
 % path for PA data
+%% General Setup
+NumP = 5000; %number of points
+%% load files
 basepath=...
-'/Users/Thore/Documents/MATLAB/PAProcessing/Speckle/0205_Slab02OnGlass_NearPerpendicular/';
+'/Users/Thore/Documents/MATLAB/PAProcessing/Speckle/0226_blood0.1Hct/';
 cd(basepath)
 
+%Read files that were accepted
+fileID = fopen('velocitymeasurements_full_peak0_Interpolant_rejected.csv','r');
+formatSpec = '%f %f %f %f %f %f %f %f %f %f %f %f Good result';
+% 1   Dial/rate (ml/h)
+% 2   Record number
+% 3   Number of files
+% 4   Known velocity (mm/s)
+% 5   Known resolution (mm/s)
+% 6   Measured velocity from fit to xcorr peak (mm/s)
+% 7   Measured resolution from fit to xcorr peak (mm/s)
+% 8   Measured pulse separation (ms)
+% 9   Theoretical resolution based on oscilloscope sampling interval (mm/s)
+% 10  Amplitude of selected peak
+% 11  Amplitude of selected peak relative to the next largest peak
+% 12  Amplitude of selected peak relative to the RMS of the xcorr amplitude
+% 13  Quality of result (options: "Good result", Default; "Bad result
+% (incorrect pulse sep - laser misfiring)"; "Bad
+sz = [12 Inf];
+files_raw=fscanf(fileID,formatSpec, sz); clearvars sz;
+fclose(fileID);
+%Convert files_raw into filenames
 names={};
-for i=1:10
-names=[names,['rate_0_66.6sep_250MHz_16.300trig_1files_',num2str(i),'.csv']];
+for i=1:size(files_raw,2)
+    str=['rate_-',...
+        num2str(files_raw(1,i)),'_1.0sep_full_12.340trig_',...
+        num2str(files_raw(3,i)),'files_',...
+        num2str(files_raw(2,i)),'.csv'];
+    
+    names=[names,str];
 end
-
+clear('files_raw', 'str', 'minus', 'formatSpec', 'fileID');
 
 dt=0.25; %sampling interval in ns
 number_of_files=length(names);
+
+%% do carpet plots
 
 for u=1:number_of_files;
     display(u);
@@ -26,25 +57,11 @@ for u=1:number_of_files;
     %take 1000 point, split them off, filter attach to "pressure"
     %step by 1000, repeat, until end of file
     %split all data inte separate acquistions (indext in dimension 2)
-    for x=1000:1000:size(all_points,1);
-        i=i+1;
-        
-        %Split file
-        dd=all_points(x-999:x,2);
-        
-        %Filter
-%         order=2;
-%         lowF=250;
-%         sampling_rate = 4000;
-%         [b,a]=butter(order,lowF/sampling_rate*2,'low');
-%         d1 = filter(b,a,dd);
-%         d1r = wrev(d1);
-%         d2 = filter(b,a,d1r);
-%         dd = wrev(d2);
-        
-        pressure(u,1:1000,i)= dd;
+    for x=NumP:2*NumP:size(all_points,1)-NumP;
+        i=i+1;     
+        pressure(u,1:NumP,i)= all_points(x-(NumP-1):x,2);
     end 
-    clear('all_points','dd','d1','d1r','d1','b','a');
+    clear('all_points');
 end
 p=mean(pressure,3);
 for i=1:number_of_files-1

@@ -19,7 +19,7 @@ options('normalise')=0;
 %Start at N,N+w -> N+q,N+w+q ->...->N+(jmax-1)q,N+(jmax-1)q+w
 %==>> jmax is number of windows
 options('N')=1000;%starting poing
-options('q')=30;%stepsize
+options('q')=50;%stepsize
 options('w')=200; %interrogation windows
 options('W')=2000; %walking length
 %Ensure walking length needs to be integer multiple of stepisze
@@ -39,7 +39,7 @@ varying_flowrate = 1; %or is the flow rate being changed?
 %% Read files
 % path for PA data
 basepath=...
-    '/Users/Thore/Documents/MATLAB/PAProcessing/JosData/raw/';
+    '/Users/Thore/Documents/MATLAB/PAProcessing/JosData/610nm/';
 cd(basepath)
 
 
@@ -63,24 +63,40 @@ formatSpec = '%f %f %f %f %f %f %f %f %f %f %f %f Good result';
 sz = [12 Inf];
 files_raw=fscanf(fileID,formatSpec, sz); clearvars sz;
 fclose(fileID);
-
 %Convert files_raw into filenames
 names={};
+other_files={};
 for i=1:size(files_raw,2)
-    if files_raw(1,i)
+    if files_raw(1,i) %flow rate is non zero
         minus='-';
     else
         minus='';
     end
-    if files_raw(2,i)==1
-        str=['rate_',minus,...
-            num2str(files_raw(1,i)),'_0.5sep_250Mhz_12.764trig_',...
-            num2str(files_raw(3,i)),'files_'];%,...
-            %num2str(files_raw(2,i)),'.csv'];
-        names=[names,str];
+    str=['rate_',minus,...
+        num2str(files_raw(1,i)),'_0.5sep_250Mhz_12.764trig_',...
+        num2str(files_raw(3,i)),'files_',...
+        num2str(files_raw(2,i)),'.csv'];
+    if i>1;
+        %check if previous entries have same flowrate
+        prevmatch1=[files_raw(1,1:i-1)==files_raw(1,i)];
+        prevmatch2=[files_raw(3,1:i-1)==files_raw(3,i)];
+        if any(prevmatch1);
+            f1=find(prevmatch1); %index of non-zero elements            
+            if any(prevmatch2);
+                f2=find(prevmatch2); %index of non-zero elements 
+                f3=find(ismember(f1,f2));                
+                idx=f1(f3(1)); %idx is first occurence of same prev entry
+                idx=map(idx); %index corresp. to pos in names{}
+                str=[];
+                other_files{idx}(length(f3))=files_raw(2,i);                  
+            end
+        end        
     end
+    names=[names,str];
+    map(i)=length(names);
 end
-clearvars files_raw str minus formatSpec fileID;
+clear('files_raw', 'str', 'minus', 'formatSpec', 'fileID',...
+    'map', 'prevmatch1', 'prevmatch2', 'idx', 'f1', 'f2', 'f3', 'str');
 
 %% analyse each file
 number_of_files=length(names);
@@ -88,6 +104,7 @@ for i=1:number_of_files;
     display(i);
     filename=names{i};
     %find flow rate from filename
+    options('other_files')=other_files{i};
     [shift, profile, pressure]=PAF(filename, options);
     shift_all(:,i)=shift;
     profile_all(:,i)=profile;
@@ -110,11 +127,11 @@ end
 %correlating the entire%waveform
 shift_all_E=padarray(shift_all(2,:)', [0 size(profile_all,1)-1], ...
     'symmetric', 'post');
-fig=figure;%('Visible','off');
+fig=figure('Visible','on');
 %adjust the number in for loop to equal number of files anaylsed (n)
 %make sure subplot has enough space: 
 sbY=5;
-sbX=4;
+sbX=5;
 %make sure that you increase the subplot no as the no of files increase
 for i=1:number_of_files; subplot(sbY,sbX,i);hold on; box on
     for j=1:jmax-1;
@@ -126,8 +143,9 @@ for i=1:number_of_files; subplot(sbY,sbX,i);hold on; box on
 %     S=strrep(names(i),'_','\_');
 %     S=S{1};
 %     S=[S(1:21),'xcorr', num2str(shift_all_E(i,1))];
-    title(num2str(shift_all(1,i)));
-    ylim([-5 5])
+    title([num2str(shift_all(1,i)),' ml/s ',...
+        num2str(length(other_files{i})),' file(s)']);
+    ylim([-10 5])
     xlim([1 jmax])
     ax=gca;
     ax.YGrid = 'on';
@@ -179,8 +197,8 @@ else %varying_flowrate
     ylabel('Measured Time Shift (ns)');
     xlim([min(shift_all(1,:)) max(shift_all(1,:))]);
     
-    plot(shift_profile(1,:),shift_profile(2,:),'b.-')
-    plot(shift_poly(1,:),shift_poly(2,:),'r.-')
+%     plot(shift_profile(1,:),shift_profile(2,:),'b.-')
+%     plot(shift_poly(1,:),shift_poly(2,:),'r.-')
 end
 hold off
     str={['highpass = ', num2str(options('highpass')),'Mhz'],...
@@ -195,7 +213,13 @@ set(fig, 'Position', [100 100 256*sbX 256*sbY]);
 %% save files, return
 %save file
 disp(['saving figure ', figname]);
-cd([basepath,'figures/']);
+try
+    cd([basepath,'figures/']);
+catch
+    warning('Creating directory');
+    mkdir([basepath,'figures/']);
+    cd([basepath,'figures/']);
+end
 set(gcf,'PaperPositionMode','auto')
 print(fig,figname,'-dpng','-r300')
 close(fig);

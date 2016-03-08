@@ -2,35 +2,18 @@ function []= ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname)
 %% General Setup
 options=containers.Map;
 %Oscilloscope options
-options('dt')=0.25; %sampling interval in ns
-options('sampling_rate') = 4000; %samples per microsecond
-%Filtering options
-options('highpass') = highpass; %high pass filter?(freq in Mhz) 0=no filter
-options('lowpass') = lowpass; %low pass filter?(freq in Mhz) 0=no filter
-options('wallfilter') = wallfilter; %remove mean signal from all signals?
-%Xcorr of entire waveform options
-options('corrmin')=corrmin;
-options('corrmax')=corrmax;
-%Time Gating options
-options('time_gating')=1;
-options('draw')=0; %only works with time_gating=1
-options('remove_outliers')=1; %currently not implemented
-options('normalise')=0;
+dt = 0.25; %sampling interval in ns
+sampling_rate = 4000; %samples per microsecond
+%timegating options
 %Start at N,N+w -> N+q,N+w+q ->...->N+(jmax-1)q,N+(jmax-1)q+w
 %==>> jmax is number of windows
-options('N')=1000;%starting poing
-options('q')=50;%stepsize
-options('w')=200; %interrogation windows
-options('W')=2000; %walking length
 %Ensure walking length needs to be integer multiple of stepisze
-Rem=rem(options('W'),options('q'))
-options('W')=options('W')-Rem;
-N=options('N');
-q=options('q');
-w=options('w');
-W=options('W');
+N=1000; %Starting point
+q=50; %stepsize
+w=200; %Interrogation windows
+W=2000; %walking length
+W=W-rem(W,q);
 jmax=W/q;
-assert(~rem(W,q),'W/q not integer');
 
 %Plotting options
 varying_separation = 0; %pulse sep the controlled variable?
@@ -38,10 +21,10 @@ varying_flowrate = 1; %or is the flow rate being changed?
 
 %% Read files
 % path for PA data
+warning('Ensure filename for valid velocity measurements is correct');
 basepath=...
     '/Users/Thore/Documents/MATLAB/PAProcessing/JosData/610nm/';
 cd(basepath)
-
 
 %Read files that were accepted
 fileID = fopen('velocitymeasurements_250MHz_peak0_Interpolant.csv','r');
@@ -88,6 +71,7 @@ for i=1:size(files_raw,2)
                 idx=f1(f3(1)); %idx is first occurence of same prev entry
                 idx=map(idx); %index corresp. to pos in names{}
                 str=[];
+                %list of indexes for other files with from same flowrate
                 other_files{idx}(length(f3))=files_raw(2,i);                  
             end
         end        
@@ -100,12 +84,21 @@ clear('files_raw', 'str', 'minus', 'formatSpec', 'fileID',...
 
 %% analyse each file
 number_of_files=length(names);
+paf=PAF(dt, sampling_rate);
 for i=1:number_of_files;
     display(i);
     filename=names{i};
     %find flow rate from filename
-    options('other_files')=other_files{i};
-    [shift, profile, pressure]=PAF(filename, options);
+    paf.ReadData(filename,other_files{i});
+    
+    if lowpass; paf.lowpass(lowpass);end
+    if highpass; paf.highpass(highpass);end
+    if wallfilter; paf.wallfilter();end
+    
+    shift = paf.xcorr(corrmin, corrmax);    
+    profile = paf.TimeGating(N, q, w, W, 0, 0);
+    pressure = paf.pressure;
+    
     shift_all(:,i)=shift;
     profile_all(:,i)=profile;
 end

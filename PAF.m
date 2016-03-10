@@ -16,6 +16,7 @@ classdef PAF < handle %PAF is a handle class
         xcorrs_norm
         shift
         profile
+        imf %intrinsic mode functions
     end
     methods
         function obj = PAF(dt, sampling_rate)
@@ -23,6 +24,7 @@ classdef PAF < handle %PAF is a handle class
         obj.sampling_rate=sampling_rate;
         end
         function ReadData(obj,filename, other_files)
+            obj.pressure=[];
             %shift(flowrate, xcorr_peak_pos in ns)
             %profile is timegating xcorr peak pos plotted against windows position
             expr='-?[\d.]+_0\.5sep';
@@ -102,6 +104,20 @@ classdef PAF < handle %PAF is a handle class
             obj.pressure=obj.pressure-repmat(meansignal,...
                 [1 size(obj.pressure,2)]);
         end
+        function emd(obj,low,high)
+            obj.imf={};
+            h = waitbar(0, 'Initialising Waitbar');
+            for i=1:size(obj.pressure,2)
+                msg=['Emperical Mode Decomposition: ',...
+                    num2str(i/size(obj.pressure,2)*100),'%'];
+                waitbar(i/size(obj.pressure,2),h,msg);
+                imf = emd(obj.pressure(:,i));
+                p = cell2mat(imf');
+                obj.pressure(:,i)=sum(p(1+high:end-low,:),1);
+                obj.imf{i} = p;
+            end
+            close(h);
+        end
         function shift = xcorr(obj, corrmin, corrmax)
             obj.corrmin = corrmin;
             obj.corrmax = corrmax;
@@ -141,25 +157,29 @@ classdef PAF < handle %PAF is a handle class
             
             
             shift=(shift-width)*obj.dt;
-            obj.shift=[obj.flow_rate, shift];
+            shift=[obj.flow_rate, shift];
+            obj.shift=shift;
             %SHIFT_ALL=cat(1,SHIFT_ALL,xcorr_peak_pos);
-            
-            clear('max_shift_i','meanxcorr', 'xcorrs');
         end
         function profile = TimeGating(obj, N, q, w, W, normalise, remove_outliers)
-            jmax=w/q;
-            assert(~rem(w,q),'W/q not integer');
+            jmax=W/q;
+            assert(~rem(W,q),'W/q not integer');
             %starting point for xcorr
             corr_bounds=ceil(0.5*w);
             %between 0and1.defines size of search for corr peak
             %assume first pair correlates
+            h = waitbar(0, 'Initialising Waitbar'); 
+            xcorr_it_max=size(obj.pressure,2)/2;
             for i=1:2:size(obj.pressure,2)-1;
                 for j=1:jmax
+                    msg=['Time Gating: ',num2str(j/xcorr_it_max*100),'%'];
+                    waitbar(j/xcorr_it_max,h,msg);
                     xcorrwindows(1:2*w+1,(i+1)/2,j)=xcorr(...
                         obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i+1),...
                         obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i),'biased');
                 end
             end
+            close(h);
             %Normalise
 %             if normalise
 %                 for i=1:length(xcorrwindows(1,:,1))

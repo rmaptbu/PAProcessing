@@ -85,8 +85,11 @@ clear('files_raw', 'str', 'minus', 'formatSpec', 'fileID',...
 %% analyse each file
 number_of_files=length(names);
 paf=PAF(dt, sampling_rate);
+h = waitbar(0, 'Initialising Waitbar');
+emd={};
 for i=1:number_of_files;
-    display(i);
+    msg=['Analysing files...',num2str(number_of_files-i),' files left'];
+    waitbar(i/number_of_files,h,msg);
     filename=names{i};
     %find flow rate from filename
     paf.ReadData(filename,other_files{i});
@@ -94,14 +97,17 @@ for i=1:number_of_files;
     if lowpass; paf.lowpass(lowpass);end
     if highpass; paf.highpass(highpass);end
     if wallfilter; paf.wallfilter();end
-    
-    shift = paf.xcorr(corrmin, corrmax);    
+%     paf.emd(0,0);
+%     emd{i}=paf.imf; %empirical mode decomposition
+    paf.pressure=sum(emdd{i}{:}
+    shift = paf.xcorr(1750, 2250);
     profile = paf.TimeGating(N, q, w, W, 0, 0);
     pressure = paf.pressure;
     
-    shift_all(:,i)=shift;
+    shift_all(:,i)=shift';
     profile_all(:,i)=profile;
 end
+clos(h);
 [shift_all I]=sortrows(shift_all');
 shift_all=shift_all';
 
@@ -138,7 +144,7 @@ for i=1:number_of_files; subplot(sbY,sbX,i);hold on; box on
 %     S=[S(1:21),'xcorr', num2str(shift_all_E(i,1))];
     title([num2str(shift_all(1,i)),' ml/s ',...
         num2str(length(other_files{i})),' file(s)']);
-    ylim([-10 5])
+    ylim([-5 5])
     xlim([1 jmax])
     ax=gca;
     ax.YGrid = 'on';
@@ -194,11 +200,11 @@ else %varying_flowrate
 %     plot(shift_poly(1,:),shift_poly(2,:),'r.-')
 end
 hold off
-    str={['highpass = ', num2str(options('highpass')),'Mhz'],...
-        ['lowpass = ', num2str(options('lowpass')),'Mhz'],...
-        ['wallfilter = ', num2str(options('wallfilter'))],...
-        ['corrmin = ', num2str(options('corrmin'))],...
-        ['corrmax = ', num2str(options('corrmax'))]};
+    str={['highpass = ', num2str(highpass),'Mhz'],...
+        ['lowpass = ', num2str(lowpass),'Mhz'],...
+        ['wallfilter = ', num2str(wallfilter)],...
+        ['corrmin = ', num2str(paf.corrmin)],...
+        ['corrmax = ', num2str(paf.corrmax)]};
     annotation('textbox',[ 1-1/sbX 0.025 1/sbX 1/sbY],...
         'String',str, 'FitBoxToText', 'on');
 %set size

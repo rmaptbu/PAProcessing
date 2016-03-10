@@ -27,7 +27,7 @@ imf{end+1} = x(n+1:end-n);
 %% FUNCTIONS
 function u = ismonotonic(x)
 u1 = length(findpeaks(x))*length(findpeaks(-x));
-if u1 > 0
+if u1 > 2
     u = 0;
 else %there are no peaks or troughs
     u = 1;
@@ -46,7 +46,7 @@ end
 function s = getspline(x)
 N = length(x);
 [~, p] = findpeaks(x);
-%p=[1, p, N]; %clamp spline fitting
+p=[1, p, N]; %clamp spline fitting
 s = spline(p,x(p),1:N);
 
 function xe = extend(x)

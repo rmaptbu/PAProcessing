@@ -1,4 +1,4 @@
-function []= ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname)
+function []= ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname,emdd, emd_low, emd_high)
 %% General Setup
 options=containers.Map;
 %Oscilloscope options
@@ -99,7 +99,7 @@ for i=1:number_of_files;
     if wallfilter; paf.wallfilter();end
 %     paf.emd(0,0);
 %     emd{i}=paf.imf; %empirical mode decomposition
-    paf.pressure=sum(emdd{i}{:}
+    paf.EMD2Pressure(emdd{i},emd_low,emd_high);
     shift = paf.xcorr(1750, 2250);
     profile = paf.TimeGating(N, q, w, W, 0, 0);
     pressure = paf.pressure;
@@ -107,20 +107,20 @@ for i=1:number_of_files;
     shift_all(:,i)=shift';
     profile_all(:,i)=profile;
 end
-clos(h);
+close(h);
 [shift_all I]=sortrows(shift_all');
 shift_all=shift_all';
 
 %% find mean of selected region of flowprofile
-fmin=25;
-fmax=35;
-for i=1:number_of_files
-    shift_profile(:,i) = [shift_all(1,i),mean(profile_all(fmin:fmax,i))];
-    %fit parbolic flow profile
-    p = polyfit(fmin:fmax,squeeze(profile_all(fmin:fmax,i))',2);
-    xmin=-p(2)/(2*p(1));
-    shift_poly(:,i) = [shift_all(1,i),p(1)*xmin^2+p(2)*xmin+p(3)];
-end
+% fmin=25;
+% fmax=35;
+% for i=1:number_of_files
+%     shift_profile(:,i) = [shift_all(1,i),mean(profile_all(fmin:fmax,i))];
+%     %fit parbolic flow profile
+%     p = polyfit(fmin:fmax,squeeze(profile_all(fmin:fmax,i))',2);
+%     xmin=-p(2)/(2*p(1));
+%     shift_poly(:,i) = [shift_all(1,i),p(1)*xmin^2+p(2)*xmin+p(3)];
+% end
 %% create summary plots..
 %shift_all contains the measured shift obtained by
 %correlating the entire%waveform
@@ -204,7 +204,8 @@ hold off
         ['lowpass = ', num2str(lowpass),'Mhz'],...
         ['wallfilter = ', num2str(wallfilter)],...
         ['corrmin = ', num2str(paf.corrmin)],...
-        ['corrmax = ', num2str(paf.corrmax)]};
+        ['corrmax = ', num2str(paf.corrmax)],...
+        ['emd low/emd high = ',num2str(emd_low),'/',num2str(emd_high)]};
     annotation('textbox',[ 1-1/sbX 0.025 1/sbX 1/sbY],...
         'String',str, 'FitBoxToText', 'on');
 %set size

@@ -1,43 +1,14 @@
-clear;
-corrmean=2001;
-% for corrsize=500:500:500
-%     corrmin=corrmean-corrsize/2;
-%     corrmax=corrmean+corrsize/2;
-%     lowpass=250;
-%     highpass=10;
-%     wallfilter=0;
-%     figname=['test',num2str(corrsize)];
-%     ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname);
-% end
+clearvars -except emdd;
 
 corrmin=1;
 corrmax=5000;
-highpass=10;
-lowpass=0;
+highpass=00;
+lowpass=250;
 wallfilter=0;
-figname=['WallOffLowpass0Highpass',num2str(highpass)];
-ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname);
-
-corrsize=500;
-corrmin=1;
-corrmax=5000;
-for highpass=2:2:14
-    lowpass=0;
-    wallfilter=0;
-    figname=['WallOffLowpass0Highpass',num2str(highpass)];
-    ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname);
-end
-
-for highpass=2:2:14
-    lowpass=250;
-    wallfilter=1;
-    figname=['WallOnLowpass250Highpass',num2str(highpass)];
-    ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname);
-end
-
-for highpass=2:2:14
-    lowpass=250;
-    wallfilter=0;
-    figname=['WallOffLowpass250Highpass',num2str(highpass)];
-    ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname);
+emd_high=0;
+for i=5:7
+    disp(i);
+    emd_low=i-1;
+    figname=['emd_low_HR',num2str(emd_low)];
+    ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname, emdd, emd_low, emd_high);
 end

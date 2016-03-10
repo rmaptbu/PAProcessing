@@ -104,6 +104,13 @@ classdef PAF < handle %PAF is a handle class
             obj.pressure=obj.pressure-repmat(meansignal,...
                 [1 size(obj.pressure,2)]);
         end
+        function EMD2Pressure(obj,IMFs,low,high)
+            N=size(IMFs,2);
+            obj.pressure=[];
+            for i=1:N
+                obj.pressure(:,i)=sum(IMFs{i}(1+high:end-low,:),1);
+            end
+        end
         function emd(obj,low,high)
             obj.imf={};
             h = waitbar(0, 'Initialising Waitbar');
@@ -169,11 +176,11 @@ classdef PAF < handle %PAF is a handle class
             %between 0and1.defines size of search for corr peak
             %assume first pair correlates
             h = waitbar(0, 'Initialising Waitbar'); 
-            xcorr_it_max=size(obj.pressure,2)/2;
+            xcorr_it_max=size(obj.pressure,2)-1;
             for i=1:2:size(obj.pressure,2)-1;
                 for j=1:jmax
-                    msg=['Time Gating: ',num2str(j/xcorr_it_max*100),'%'];
-                    waitbar(j/xcorr_it_max,h,msg);
+                    msg=['Time Gating: ',num2str(i/xcorr_it_max*100),'%'];
+                    waitbar(i/xcorr_it_max,h,msg);
                     xcorrwindows(1:2*w+1,(i+1)/2,j)=xcorr(...
                         obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i+1),...
                         obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i),'biased');

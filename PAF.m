@@ -3,26 +3,22 @@ classdef PAF < handle %PAF is a handle class
         %Oscilloscope options
         dt
         sampling_rate
+        %extrinsic data
+        flow_rate
         %Xcorr of entire waveform options
         corrmin
         corrmax
-        %Time Gating options
-        time_gating
-        remove_outliers
-        normalise
-
-        pressure
-        flow_rate
-        xcorrs_norm
-        shift
-        profile
+        %Data
+        pressure %pressure(data, #waveform)       
+        shift %shift calculated from xcorrs: shift(flow_rate, shift(ns))
+        profile %time gating profile: profile(shift(ns))
         imf %intrinsic mode functions
         %format: imf{#waveform}(mode, pressure)
     end
     methods
-        function obj = PAF(dt, sampling_rate)
-        obj.dt=dt;
-        obj.sampling_rate=sampling_rate;
+        function obj = PAF(dt)
+        obj.dt=dt;        
+        obj.sampling_rate=1.0/dt*1E3;
         end
         function ReadData(obj,filename, other_files)
             obj.pressure=[];
@@ -135,7 +131,7 @@ classdef PAF < handle %PAF is a handle class
             for i=1:2:size(obj.pressure,2)-1;
                 xcorrs(:,(i+1)/2)=xcorr(obj.pressure(obj.corrmin:obj.corrmax,i+1),...
                     obj.pressure(obj.corrmin:obj.corrmax,i),'biased');
-                obj.xcorrs_norm(:,(i+1)/2)=xcorrs(:,(i+1)/2)./max(xcorrs(:,(i+1)/2));
+                xcorrs_norm(:,(i+1)/2)=xcorrs(:,(i+1)/2)./max(xcorrs(:,(i+1)/2));
                 %xcorrs_norm: normalised xcorr of all pairs
                 %xcorrs_norm(xcorr_value, Pair_index)
             end
@@ -144,10 +140,10 @@ classdef PAF < handle %PAF is a handle class
             %take average of all normalised cross correlations and find position of
             %maximum
             %"shift" is position of maximum
-            [~, shift_i]=max(obj.xcorrs_norm);
+            [~, shift_i]=max(xcorrs_norm);
             shift_std=std(shift_i); clear('shift_i');
             %ensemble correlation
-            meanxcorr=squeeze(mean(obj.xcorrs_norm,2));
+            meanxcorr=squeeze(mean(xcorrs_norm,2));
             [~, shift]=max(meanxcorr);
             
             %Interpolate location of maximum
@@ -180,9 +176,9 @@ classdef PAF < handle %PAF is a handle class
             xcorr_it_max=size(obj.pressure,2)-1;
             xcorrwindows=zeros(2*w+1,size(obj.pressure,2)/2,jmax);
             for i=1:2:size(obj.pressure,2)-1;
-                for j=1:jmax
-                    msg=['Time Gating: ',num2str(i/xcorr_it_max*100),'%'];
-                    waitbar(i/xcorr_it_max,h,msg);
+                msg=['Time Gating: ',num2str(i/xcorr_it_max*100),'%'];
+                waitbar(i/xcorr_it_max,h,msg);
+                for j=1:jmax                    
                     xcorrwindows(1:2*w+1,(i+1)/2,j)=xcorr(...
                         obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i+1),...
                         obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i),'biased');
@@ -247,13 +243,15 @@ classdef PAF < handle %PAF is a handle class
             obj.profile = profile;
         end
         function profile = IMFTimeGating(obj, N, q, w, W, order)
-            assert(~isempty(obj.imf), 'Need to generate intrinsic mode functions first.');
-            pressure = obj.pressure; %store pressure as backup
-            for i=1:size(obj.pressure,2) %iterate of intrinsic mode functions 
+            assert(~isempty(obj.imf), ...
+                'Need to generate intrinsic mode functions first. Run obj.emd.');
+            warning('Pressure Data is being overwritten');
+%             pressure = obj.pressure; %store pressure as backup
+            for i=1:size(obj.imf,2) %iterate of intrinsic mode functions 
             obj.pressure(:,i) = obj.imf{i}(order,:)';
             end
             profile = obj.TimeGating(N,q,w,W,0,0);
-            obj.pressure = pressure;
+%             obj.pressure = pressure;
         end
         function draw(obj)
             figure; hold on

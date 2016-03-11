@@ -1,17 +1,15 @@
-function []= ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname,emdd, emd_low, emd_high)
+function []= ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname,emdd, emd_low, emd_high,order)
 %% General Setup
-options=containers.Map;
 %Oscilloscope options
 dt = 0.25; %sampling interval in ns
-sampling_rate = 4000; %samples per microsecond
 %timegating options
 %Start at N,N+w -> N+q,N+w+q ->...->N+(jmax-1)q,N+(jmax-1)q+w
 %==>> jmax is number of windows
 %Ensure walking length needs to be integer multiple of stepisze
-N=1000; %Starting point
+N=1200; %Starting point
 q=50; %stepsize
 w=200; %Interrogation windows
-W=2000; %walking length
+W=1600; %walking length
 W=W-rem(W,q);
 jmax=W/q;
 
@@ -84,7 +82,7 @@ clear('files_raw', 'str', 'minus', 'formatSpec', 'fileID',...
 
 %% analyse each file
 number_of_files=length(names);
-paf=PAF(dt, sampling_rate);
+paf=PAF(dt);
 h = waitbar(0, 'Initialising Waitbar');
 emd={};
 for i=1:number_of_files;
@@ -93,16 +91,16 @@ for i=1:number_of_files;
     filename=names{i};
     %find flow rate from filename
     paf.ReadData(filename,other_files{i});
-    
-    if lowpass; paf.lowpass(lowpass);end
-    if highpass; paf.highpass(highpass);end
-    if wallfilter; paf.wallfilter();end
+%     
+%     if lowpass; paf.lowpass(lowpass);end
+%     if highpass; paf.highpass(highpass);end
+%     if wallfilter; paf.wallfilter();end
 %     paf.emd(0,0);
 %     emd{i}=paf.imf; %empirical mode decomposition
-    paf.EMD2Pressure(emdd{i},emd_low,emd_high);
+    %paf.EMD2Pressure(emdd{i},emd_low,emd_high);
     paf.imf=emdd{i};
+    profile = paf.IMFTimeGating(N, q, w, W, order);
     shift = paf.xcorr(1750, 2250);
-    profile = paf.IMFTimeGating(N, q, w, W, 1);
     pressure = paf.pressure;
     
     shift_all(:,i)=shift';
@@ -111,7 +109,15 @@ end
 close(h);
 [shift_all I]=sortrows(shift_all');
 shift_all=shift_all';
-
+try
+    cd([basepath,'Analysed/']);
+catch
+    warning('Creating directory');
+    mkdir([basepath,'Analysed/']);
+    cd([basepath,'Analysed/']);
+end
+save(['profile_all_Mode',num2str(order)],'profile_all');
+cd(basepath);
 %% find mean of selected region of flowprofile
 % fmin=25;
 % fmax=35;
@@ -130,7 +136,7 @@ shift_all_E=padarray(shift_all(2,:)', [0 size(profile_all,1)-1], ...
 fig=figure('Visible','on');
 %adjust the number in for loop to equal number of files anaylsed (n)
 %make sure subplot has enough space: 
-sbY=5;
+sbY=4;
 sbX=5;
 %make sure that you increase the subplot no as the no of files increase
 for i=1:number_of_files; subplot(sbY,sbX,i);hold on; box on
@@ -168,9 +174,9 @@ hold off;
 i=(ceil(number_of_files/sbX))*sbX; %go to start of a new row
 subplot(sbY,sbX,i+1:i+2)
 plot(pressure(:,1),'Color',[0 0 0]);hold on
-for j=1:jmax-1;
+for j=1:jmax;
     box on
-    plot(N+j*q:N+j*q+49,pressure(N+j*q:N+j*q+49,1),...
+    plot(N+(j-1)*q:N+(j-1)*q+w,pressure(N+(j-1)*q:N+(j-1)*q+w,1),...
         'LineWidth',2,'Color',[j/jmax,.5-j/(jmax*2),1-j/jmax]);
 end;hold off;
 
@@ -206,6 +212,7 @@ hold off
         ['wallfilter = ', num2str(wallfilter)],...
         ['corrmin = ', num2str(paf.corrmin)],...
         ['corrmax = ', num2str(paf.corrmax)],...
+        ['IMF = ', num2str(order)],...
         ['emd low/emd high = ',num2str(emd_low),'/',num2str(emd_high)]};
     annotation('textbox',[ 1-1/sbX 0.025 1/sbX 1/sbY],...
         'String',str, 'FitBoxToText', 'on');

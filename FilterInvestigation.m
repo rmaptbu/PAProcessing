@@ -6,9 +6,10 @@ highpass=00;
 lowpass=250;
 wallfilter=0;
 emd_high=0;
-for i=6:7
+emd_low=0;
+for i=1:4
     disp(i);
-    emd_low=i-1;
-    figname=['emd_low_restricted',num2str(emd_low)];
-    ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname, emdd, emd_low, emd_high);
+    order=i;
+    figname=['IMFXcorrs_Mode',num2str(order)];
+    ReadFiles(highpass,lowpass,wallfilter,corrmin,corrmax,figname, emdd, emd_low, emd_high,order);
 end

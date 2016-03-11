@@ -17,6 +17,7 @@ classdef PAF < handle %PAF is a handle class
         shift
         profile
         imf %intrinsic mode functions
+        %format: imf{#waveform}(mode, pressure)
     end
     methods
         function obj = PAF(dt, sampling_rate)
@@ -111,7 +112,7 @@ classdef PAF < handle %PAF is a handle class
                 obj.pressure(:,i)=sum(IMFs{i}(1+high:end-low,:),1);
             end
         end
-        function emd(obj,low,high)
+        function emd(obj,low,high) %empirical mode decomposition
             obj.imf={};
             h = waitbar(0, 'Initialising Waitbar');
             for i=1:size(obj.pressure,2)
@@ -172,11 +173,12 @@ classdef PAF < handle %PAF is a handle class
             jmax=W/q;
             assert(~rem(W,q),'W/q not integer');
             %starting point for xcorr
-            corr_bounds=ceil(0.5*w);
+            corr_bounds=ceil(0.2*w);
             %between 0and1.defines size of search for corr peak
             %assume first pair correlates
             h = waitbar(0, 'Initialising Waitbar'); 
             xcorr_it_max=size(obj.pressure,2)-1;
+            xcorrwindows=zeros(2*w+1,size(obj.pressure,2)/2,jmax);
             for i=1:2:size(obj.pressure,2)-1;
                 for j=1:jmax
                     msg=['Time Gating: ',num2str(i/xcorr_it_max*100),'%'];
@@ -243,6 +245,15 @@ classdef PAF < handle %PAF is a handle class
             
             profile=xcorr_peak_pos';
             obj.profile = profile;
+        end
+        function profile = IMFTimeGating(obj, N, q, w, W, order)
+            assert(~isempty(obj.imf), 'Need to generate intrinsic mode functions first.');
+            pressure = obj.pressure; %store pressure as backup
+            for i=1:size(obj.pressure,2) %iterate of intrinsic mode functions 
+            obj.pressure(:,i) = obj.imf{i}(order,:)';
+            end
+            profile = obj.TimeGating(N,q,w,W,0,0);
+            obj.pressure = pressure;
         end
         function draw(obj)
             figure; hold on

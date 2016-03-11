@@ -100,8 +100,9 @@ for i=1:number_of_files;
 %     paf.emd(0,0);
 %     emd{i}=paf.imf; %empirical mode decomposition
     paf.EMD2Pressure(emdd{i},emd_low,emd_high);
+    paf.imf=emdd{i};
     shift = paf.xcorr(1750, 2250);
-    profile = paf.TimeGating(N, q, w, W, 0, 0);
+    profile = paf.IMFTimeGating(N, q, w, W, 1);
     pressure = paf.pressure;
     
     shift_all(:,i)=shift';

@@ -9,39 +9,54 @@ classdef PAF < handle %PAF is a handle class
         corrmin
         corrmax
         %Data
-        pressure %pressure(data, #waveform)       
+        pressure %pressure(data, #waveform)
+        xcorrwindows_ensemble
         shift %shift calculated from xcorrs: shift(flow_rate, shift(ns))
         profile %time gating profile: profile(shift(ns))
         imf %intrinsic mode functions
         %format: imf{#waveform}(mode, pressure)
+        %Timegating option
+        N
+        q
+        w
+        W
+        jmax
     end
     methods
         function obj = PAF(dt)
-        obj.dt=dt;        
-        obj.sampling_rate=1.0/dt*1E3;
+            obj.dt=dt;
+            obj.sampling_rate=1.0/dt*1E3;
         end
-        function ReadFlowrate(obj, filename)
+        function ReadFlowrate(obj, input)
+            if ischar(input)
+                filename=input;
             expr='-?[\d.]+_0\.5sep';
             [start, fin]=regexp(filename,expr);
             obj.flow_rate = str2double(filename(start:fin-7));
+            elseif isnumeric(input)
+                obj.flow_rate = input
+            else
+                error('filetype(input) is is not accepted as input');
+            end  
         end
-        function ReadData(obj,filename, other_files)
-            obj.pressure=[];
-            %shift(flowrate, xcorr_peak_pos in ns)
-            %profile is timegating xcorr peak pos plotted against windows position
-            expr='-?[\d.]+_0\.5sep';
-            [start, fin]=regexp(filename,expr);
-            obj.flow_rate = str2double(filename(start:fin-7));
-            
-            %load all files into "all_points" (just some variable)
-            all_points = csvread(filename);
-            filename=filename(1:end-5);
-            %add all other files with same rates to this dataset
-            for i=1:length(other_files);
-                all_points=cat(1,all_points,...
-                    csvread([filename,num2str(other_files(i)),'.csv']));
-            end
-            %
+        function ReadData(obj,file, other_files)
+            if ischar(file)
+                obj.pressure=[];
+                %shift(flowrate, xcorr_peak_pos in ns)
+                %profile is timegating xcorr peak pos plotted against windows position
+                expr='-?[\d.]+_0\.5sep';
+                [start, fin]=regexp(file,expr);
+                obj.flow_rate = str2double(file(start:fin-7));
+                
+                %load all files into "all_points" (just some variable)
+                all_points = csvread(file);
+                file=file(1:end-5);
+                %add all other files with same rates to this dataset
+                for i=1:length(other_files);
+                    all_points=cat(1,all_points,...
+                        csvread([file,num2str(other_files(i)),'.csv']));
+                end
+                %
             i=0;
             %take 5000 point, split them off, filter attach to "pressure"
             %step by 5000, repeat, until end of file
@@ -51,6 +66,13 @@ classdef PAF < handle %PAF is a handle class
                 %Split file
                 obj.pressure(1:5000,i)=all_points(x-4999:x,2);
             end
+            elseif isreal(file)
+                %remember to set flowrate explicitly (obj.flow_rate=..)
+                obj.pressure=file;
+            else
+                error('filetype(file) is is not accepted as input');
+            end            
+            
             obj.corrmin=1;
             obj.corrmax=5000;
             
@@ -130,7 +152,7 @@ classdef PAF < handle %PAF is a handle class
         function shift = xcorr(obj, corrmin, corrmax)
             obj.corrmin = corrmin;
             obj.corrmax = corrmax;
-
+            
             %cross correlate all signal and normalise by maximum
             width=obj.corrmax-obj.corrmin;
             for i=1:2:size(obj.pressure,2)-1;
@@ -172,18 +194,23 @@ classdef PAF < handle %PAF is a handle class
         end
         function profile = TimeGating(obj, N, q, w, W, normalise, remove_outliers)
             jmax=W/q;
+            obj.N=N;
+            obj.q=q;
+            obj.w=w;
+            obj.W=W;
+            obj.jmax=jmax;
             assert(~rem(W,q),'W/q not integer');
             %starting point for xcorr
             corr_bounds=ceil(0.2*w);
             %between 0and1.defines size of search for corr peak
             %assume first pair correlates
-            h = waitbar(0, 'Initialising Waitbar'); 
+            h = waitbar(0, 'Initialising Waitbar');
             xcorr_it_max=size(obj.pressure,2)-1;
             xcorrwindows=zeros(2*w+1,size(obj.pressure,2)/2,jmax);
             for i=1:2:size(obj.pressure,2)-1;
                 msg=['Time Gating: ',num2str(i/xcorr_it_max*100),'%'];
                 waitbar(i/xcorr_it_max,h,msg);
-                for j=1:jmax                    
+                for j=1:jmax
                     xcorrwindows(1:2*w+1,(i+1)/2,j)=xcorr(...
                         obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i+1),...
                         obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i),'biased');
@@ -191,14 +218,14 @@ classdef PAF < handle %PAF is a handle class
             end
             close(h);
             %Normalise
-%             if normalise
-%                 for i=1:length(xcorrwindows(1,:,1))
-%                     for j=1:length(xcorrwindows(1,1,:))
-%                         xcorrwindows(:,i,j)=...
-%                             xcorrwindows(:,i,j)./max(xcorrwindows(:,i,j));
-%                     end
-%                 end
-%             end
+            %             if normalise
+            %                 for i=1:length(xcorrwindows(1,:,1))
+            %                     for j=1:length(xcorrwindows(1,1,:))
+            %                         xcorrwindows(:,i,j)=...
+            %                             xcorrwindows(:,i,j)./max(xcorrwindows(:,i,j));
+            %                     end
+            %                 end
+            %             end
             
             xcorrwindows_ensemble=squeeze(mean(xcorrwindows,2));
             %w+1 is centre
@@ -246,84 +273,49 @@ classdef PAF < handle %PAF is a handle class
             
             profile=xcorr_peak_pos';
             obj.profile = profile;
+            obj.xcorrwindows_ensemble = xcorrwindows_ensemble;
         end
         function profile = IMFTimeGating(obj, N, q, w, W, order)
             assert(~isempty(obj.imf), ...
                 'Need to generate intrinsic mode functions first. Run obj.emd.');
             warning('Pressure Data is being overwritten');
-%             pressure = obj.pressure; %store pressure as backup
-            for i=1:size(obj.imf,2) %iterate of intrinsic mode functions 
-            obj.pressure(:,i) = obj.imf{i}(order,:)';
+            %             pressure = obj.pressure; %store pressure as backup
+            for i=1:size(obj.imf,2) %iterate of intrinsic mode functions
+                obj.pressure(:,i) = obj.imf{i}(order,:)';
             end
             profile = obj.TimeGating(N,q,w,W,0,0);
-%             obj.pressure = pressure;
+            %             obj.pressure = pressure;
         end
         function draw(obj)
-            figure; hold on
+
+            figure;
             set(0,'DefaultAxesFontName', 'Times New Roman')
             set(0,'DefaultAxesFontSize', 11)
-            for i=1:jmax-1;
-                plot(i:i+1,I(i:i+1),'LineWidth',2,'Color',...
-                    [i/jmax,.5-i/(jmax*2),1-i/jmax]);
+            %profile
+            subplot(3,1,1)   
+            hold on; box on
+            for i=1:obj.jmax-1;
+                plot(i:i+1,obj.profile(i:i+1),'LineWidth',2,'Color',...
+                    [i/obj.jmax,.5-i/(obj.jmax*2),1-i/obj.jmax]);
             end ;
-            %     normal xcorr plot
-            % overview plot
-            figure
-            nplots=4;
-            ppg=floor(jmax/nplots); %plots per graph
-            for j=0:nplots-1
-                subplot(4,2,5+j)
-                %         subplot(3,5,j+1)
-                hold on;
-                xlim([w w+100]);
-                for i=j*ppg+1:(j+1)*ppg;
-                    plot(squeeze(xcorrwindows_ensemble(:,i)),'black');
-                end
-                %max points
-                
-                for i=j*ppg+1:(j+1)*ppg-1;
-                    plot(I(i:i+1)+offset,M(i:i+1),'b-o',...
-                        'LineWidth',2,'Color',[i/jmax,.5-i/(jmax*2),1-i/jmax]);
-                end
-                hold off
-            end
-            
-            %Mean signal
-            subplot(4,2,1:2)
-            meansignal=squeeze(mean(obj.pressure,2));
-            plot(meansignal);
+            xlim([1 inf]);
+            %overview plot           
+            subplot(3,1,2)
+            plot(obj.pressure(:,2),'LineWidth',2,'Color',[0.5 0.5 0.5]);
             hold on;
-            for i=1:jmax-1;
-                plot(N+i*q:N+i*q+49,meansignal(N+i*q:N+i*q+49),...
-                    'LineWidth',2,'Color',[i/jmax,.5-i/(jmax*2),1-i/jmax]);
+            plot(obj.pressure(:,1),'LineWidth',2,'Color','Black');
+            for i=1:obj.jmax-1;
+                plot(obj.N+i*obj.q:obj.N+i*obj.q+49,obj.pressure(obj.N+i*obj.q:obj.N+i*obj.q+49,1),...
+                    'LineWidth',2,'Color',[i/obj.jmax,.5-i/(obj.jmax*2),1-i/obj.jmax]);
             end ;
-            
-            %all xcorrs
-            subplot(4,2,3:4);
-            figure;hold on
-            for i=1:jmax-1;
-                fig1=plot(squeeze(xcorrwindows_ensemble(:,i)./...
-                    max(abs(xcorrwindows_ensemble(:,i)))),...
-                    'Color',[.2,.2,.2]);
-                fig1.Color(4)=0.1;
-            end
-            hold off
-            %         figure;plot(maxprofile);
-            %     savefig([filename,'.fig']);
-            
-            figure;
-            subplot(1,2,1);hold on
-            plot(obj.pressure(:,1));
-            for i=1:jmax-1;
-                plot(N+i*q:N+i*q+49,obj.pressure(N+i*q:N+i*q+49,1),...
-                    'LineWidth',2,'Color',[i/jmax,.5-i/(jmax*2),1-i/jmax]);
-            end ;hold off
-            subplot(1,2,2);hold on
-            plot(obj.pressure(:,2));
-            for i=1:jmax-1;
-                plot(N+i*q:N+i*q+49,obj.pressure(N+i*q:N+i*q+49,2),...
-                    'LineWidth',2,'Color',[i/jmax,.5-i/(jmax*2),1-i/jmax]);
-            end ;
+            %Individual xcorrs
+            subplot(3,1,3)
+            hold on; box on
+            for i=1:obj.jmax-1;
+                plot(obj.xcorrwindows_ensemble(:,i),'LineWidth',2,'Color',...
+                    [i/obj.jmax,.5-i/(obj.jmax*2),1-i/obj.jmax]);
+            end ; 
+            xlim([1 2*obj.w+1]);
         end
     end
 end

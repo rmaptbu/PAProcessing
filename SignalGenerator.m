@@ -25,15 +25,17 @@ classdef SignalGenerator < handle
         function GeneratePressure(obj,delay)
             obj.delay=delay;
             obj.pressure = [];
-            obj.voltage = [];
-            
+            obj.voltage = [];            
             ret_time = obj.time'; %Retarded time
             for i=1:obj.num_sig-1;
                 ret_time=cat(2,ret_time,obj.time'+i*delay);
             end
-            for j=1:obj.num_acq                
+            h = waitbar(0, 'Initialising Waitbar');
+            for j=1:obj.num_acq 
+                msg='Generating Pressure...';
+                waitbar(j/obj.num_acq,h,msg);
                 p=zeros(size(ret_time));
-                for i=0:2
+                for i=0:5
                     % gaussian envelope
                     sig = 150;
                     c = obj.tmax/2;
@@ -45,13 +47,33 @@ classdef SignalGenerator < handle
                     % generate shape
                     p = p + 1/(100)*env.*exp(1i*ret_time*omega+2*pi*rand);
                 end
+                
                 % measure pressure
                 env = gaussmf(repmat(obj.time,obj.num_sig,1), [50 obj.tmax/2]);
                 snr = 10.0; %in dB
                 v = awgn(p.*env',snr,'measured');
                 obj.pressure = cat(2,obj.pressure,p);
-                obj.voltage = cat(2,obj.voltage,v);
+                obj.voltage = cat(2,obj.voltage,v);                
             end
+            close(h);
+        end
+        function draw(obj,idx)
+            hold on; box on;
+            %add content
+            axis([0, obj.tmax, -inf, inf]);
+            for i=1:obj.num_sig               
+                plot(obj.time,real(obj.voltage(:,(idx-1)*obj.num_sig+i)),...
+                    '-','LineWidth', 2, 'Color',...
+                    [i/obj.num_sig, .5-i/(obj.num_sig*2),1-i/obj.num_sig]);
+            end
+            %figure setup
+            title(['Detected Pressures, delay = ', num2str(obj.delay)]);
+            %legend('Absolute', 'Real');
+            set(gca, 'FontName', 'Times New Roman');
+            set(gca, 'FontSize', 12);
+            xlabel('Time (ns)', 'FontSize', 16);
+            ylabel('Pressure (a.u.)', 'FontSize', 16);
+            hold off;
         end
     end
 end

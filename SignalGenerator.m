@@ -37,7 +37,7 @@ classdef SignalGenerator < handle
                 p=zeros(size(ret_time));
                 for i=0:5
                     % gaussian envelope
-                    sig = 150;
+                    sig = 300;
                     c = obj.tmax/2;
                     % ultrasound
                     f = 10*(1+randn) ; %frequency in Mhz

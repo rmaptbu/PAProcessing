@@ -2,6 +2,7 @@ classdef PAF < handle %PAF is a handle class
     properties
         %Oscilloscope options
         dt
+        points
         sampling_rate
         %extrinsic data
         flow_rate
@@ -75,6 +76,7 @@ classdef PAF < handle %PAF is a handle class
             
             obj.corrmin=1;
             obj.corrmax=5000;
+            obj.points=5000;
             
         end
         function lowpass(obj,frequency)
@@ -201,7 +203,7 @@ classdef PAF < handle %PAF is a handle class
             obj.jmax=jmax;
             assert(~rem(W,q),'W/q not integer');
             %starting point for xcorr
-            corr_bounds=ceil(0.2*w);
+            corr_bounds=ceil(0.9*w);
             %between 0and1.defines size of search for corr peak
             %assume first pair correlates
             h = waitbar(0, 'Initialising Waitbar');
@@ -286,36 +288,52 @@ classdef PAF < handle %PAF is a handle class
             profile = obj.TimeGating(N,q,w,W,0,0);
             %             obj.pressure = pressure;
         end
-        function draw(obj)
-
-            figure;
-            set(0,'DefaultAxesFontName', 'Times New Roman')
+        function draw(obj,figname)
+            fig=figure('Position', [500, 500, 700, 900]);
             set(0,'DefaultAxesFontSize', 11)
+            
             %profile
-            subplot(3,1,1)   
+            subplot(3,1,3)   
             hold on; box on
+            dt_w=obj.dt*obj.q;
             for i=1:obj.jmax-1;
-                plot(i:i+1,obj.profile(i:i+1),'LineWidth',2,'Color',...
+                plot(dt_w*(i-1):dt_w:dt_w*i,obj.profile(i:i+1),'LineWidth',2,'Color',...
                     [i/obj.jmax,.5-i/(obj.jmax*2),1-i/obj.jmax]);
             end ;
             xlim([1 inf]);
+            xlabel('Time (ns)');
+            ylabel('Xcorr Shift (ns)')
+            
             %overview plot           
-            subplot(3,1,2)
-            plot(obj.pressure(:,2),'LineWidth',2,'Color',[0.5 0.5 0.5]);
+            subplot(3,1,1)
+            t=obj.dt:obj.dt:(obj.points*obj.dt);
+            plot(t,obj.pressure(:,2),'LineWidth',2,'Color',[0.5 0.5 0.5]);
             hold on;
-            plot(obj.pressure(:,1),'LineWidth',2,'Color','Black');
-            for i=1:obj.jmax-1;
-                plot(obj.N+i*obj.q:obj.N+i*obj.q+49,obj.pressure(obj.N+i*obj.q:obj.N+i*obj.q+49,1),...
+            plot(t,obj.pressure(:,1),'LineWidth',2,'Color','Black');
+            for i=1:obj.jmax;
+                plot(obj.dt*(obj.N+(i-1)*obj.q):obj.dt:obj.dt*(obj.N+(i-1)*obj.q+obj.w),...
+                    obj.pressure(obj.N+(i-1)*obj.q:obj.N+(i-1)*obj.q+obj.w,1),...
                     'LineWidth',2,'Color',[i/obj.jmax,.5-i/(obj.jmax*2),1-i/obj.jmax]);
             end ;
+            xlim([t(1) t(end)]);
+            xlabel('Time (ns)');
+            ylabel('Pressure (a.u.)');
+            title(figname,'Interpreter', 'none');
             %Individual xcorrs
-            subplot(3,1,3)
+            subplot(3,1,2)
             hold on; box on
             for i=1:obj.jmax-1;
-                plot(obj.xcorrwindows_ensemble(:,i),'LineWidth',2,'Color',...
+                plot(-obj.w*obj.dt:obj.dt:obj.w*obj.dt,...
+                    obj.xcorrwindows_ensemble(:,i),'LineWidth',2,'Color',...
                     [i/obj.jmax,.5-i/(obj.jmax*2),1-i/obj.jmax]);
             end ; 
-            xlim([1 2*obj.w+1]);
+            xlabel('Xcorr Shift (ns)');
+            ylabel('Corraltion (a.u.)');
+            
+            %Save figure
+            set(gcf,'PaperPositionMode','auto')
+            print(fig,figname,'-dpng','-r300')
+            close(fig);
         end
     end
 end

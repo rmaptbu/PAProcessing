@@ -20,6 +20,11 @@ classdef PAF < handle %PAF is a handle class
         obj.dt=dt;        
         obj.sampling_rate=1.0/dt*1E3;
         end
+        function ReadFlowrate(obj, filename)
+            expr='-?[\d.]+_0\.5sep';
+            [start, fin]=regexp(filename,expr);
+            obj.flow_rate = str2double(filename(start:fin-7));
+        end
         function ReadData(obj,filename, other_files)
             obj.pressure=[];
             %shift(flowrate, xcorr_peak_pos in ns)

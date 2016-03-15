@@ -288,7 +288,15 @@ classdef PAF < handle %PAF is a handle class
             profile = obj.TimeGating(N,q,w,W,0,0);
             %             obj.pressure = pressure;
         end
-        function draw(obj,figname)
+        function draw(obj,varargin)
+            if isempty(varargin)
+                figname=['flowrate = ',num2str(obj.flow_rate)];
+                savefig = 0;
+            else 
+                figname = varargin{1};
+                savefig = 1;
+            end
+            
             fig=figure('Position', [500, 500, 700, 900]);
             set(0,'DefaultAxesFontSize', 11)
             
@@ -307,14 +315,15 @@ classdef PAF < handle %PAF is a handle class
             %overview plot           
             subplot(3,1,1)
             t=obj.dt:obj.dt:(obj.points*obj.dt);
-            plot(t,obj.pressure(:,2),'LineWidth',2,'Color',[0.5 0.5 0.5]);
+            sfig{2}=plot(t,obj.pressure(:,2),'LineWidth',2,'Color',[0.5 0.5 0.5]);
             hold on;
-            plot(t,obj.pressure(:,1),'LineWidth',2,'Color','Black');
+            sfig{1}=plot(t,obj.pressure(:,1),'LineWidth',2,'Color','Black');
             for i=1:obj.jmax;
                 plot(obj.dt*(obj.N+(i-1)*obj.q):obj.dt:obj.dt*(obj.N+(i-1)*obj.q+obj.w),...
                     obj.pressure(obj.N+(i-1)*obj.q:obj.N+(i-1)*obj.q+obj.w,1),...
                     'LineWidth',2,'Color',[i/obj.jmax,.5-i/(obj.jmax*2),1-i/obj.jmax]);
             end ;
+            legend([sfig{:}],{'Signal 1', 'Signal 2'});
             xlim([t(1) t(end)]);
             xlabel('Time (ns)');
             ylabel('Pressure (a.u.)');
@@ -324,16 +333,19 @@ classdef PAF < handle %PAF is a handle class
             hold on; box on
             for i=1:obj.jmax-1;
                 plot(-obj.w*obj.dt:obj.dt:obj.w*obj.dt,...
-                    obj.xcorrwindows_ensemble(:,i),'LineWidth',2,'Color',...
+                    obj.xcorrwindows_ensemble(:,i)./max(obj.xcorrwindows_ensemble(:,i)),...
+                    'LineWidth',2,'Color',...
                     [i/obj.jmax,.5-i/(obj.jmax*2),1-i/obj.jmax]);
             end ; 
             xlabel('Xcorr Shift (ns)');
             ylabel('Corraltion (a.u.)');
             
             %Save figure
+            if savefig
             set(gcf,'PaperPositionMode','auto')
             print(fig,figname,'-dpng','-r300')
             close(fig);
+            end
         end
     end
 end

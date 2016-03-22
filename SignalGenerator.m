@@ -35,22 +35,22 @@ classdef SignalGenerator < handle
                 msg='Generating Pressure...';
                 waitbar(j/obj.num_acq,h,msg);
                 p=zeros(size(ret_time));
-                for i=0:5
+                for i=0:0
                     % gaussian envelope
-                    sig = 300;
-                    c = obj.tmax/2;
+                    sig = 1000; %Sigma
+                    c = obj.tmax/2; %Centre
                     % ultrasound
-                    f = 10*(1+randn) ; %frequency in Mhz
+                    f = 20;%+(randn)*2 ; %frequency in Mhz
                     omega = 2*pi*f*1E-3; %angular frequency
                     %envelope
                     env = gaussmf(ret_time, [sig c]);
                     % generate shape
                     p = p + 1/(100)*env.*exp(1i*ret_time*omega+2*pi*rand);
                 end
-                
+       
                 % measure pressure
-                env = gaussmf(repmat(obj.time,obj.num_sig,1), [50 obj.tmax/2]);
-                snr = 10.0; %in dB
+                env = gaussmf(repmat(obj.time,obj.num_sig,1), [150 obj.tmax/2]);
+                snr = 100.0; %in dB
                 v = awgn(p.*env',snr,'measured');
                 obj.pressure = cat(2,obj.pressure,p);
                 obj.voltage = cat(2,obj.voltage,v);                

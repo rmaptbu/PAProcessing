@@ -137,6 +137,9 @@ classdef PAF < handle %PAF is a handle class
                 obj.pressure(:,i)=sum(IMFs{i}(1+high:end-low,:),1);
             end
         end
+        function ReloadPressure(obj)
+            obj.EMD2Pressure(obj.imf,0,0);
+        end
         function emd(obj,low,high) %empirical mode decomposition
             obj.imf={};
             h = waitbar(0, 'Initialising Waitbar');
@@ -151,7 +154,7 @@ classdef PAF < handle %PAF is a handle class
             end
             close(h);
         end
-        function shift = xcorr(obj, corrmin, corrmax)
+        function shift = xcorr41(obj, corrmin, corrmax)
             obj.corrmin = corrmin;
             obj.corrmax = corrmax;
             
@@ -208,17 +211,33 @@ classdef PAF < handle %PAF is a handle class
             %assume first pair correlates
             h = waitbar(0, 'Initialising Waitbar');
             xcorr_it_max=size(obj.pressure,2)-1;
-            xcorrwindows=zeros(2*w+1,size(obj.pressure,2)/2,jmax);
+            xcorrwindows=zeros(6*w+1,size(obj.pressure,2)/2,jmax);
             for i=1:2:size(obj.pressure,2)-1;
                 msg=['Time Gating: ',num2str(i/xcorr_it_max*100),'%'];
                 waitbar(i/xcorr_it_max,h,msg);
                 for j=1:jmax
-                    xcorrwindows(1:2*w+1,(i+1)/2,j)=xcorr(...
-                        obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i+1),...
-                        obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i),'biased');
+                    f2=[zeros(w,1);...
+                        obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i+1);...
+                        zeros(w,1)]; 
+                    f1=obj.pressure((N+(j-1)*q)-w:(N+(j-1)*q+w)+w,i);
+                    xcorrwindows(1:6*w+1,(i+1)/2,j)=xcorr(f1,f2,'none');
+%                     if i==1 && (j==1 || j==6)
+%                         figure;
+%                         subplot(2,2,1);hold on;
+%                         plot(f1,'LineWidth',2,'Color',[0 0 0]);                        
+%                         plot(f2,'LineWidth',2,'Color',[0.5 0.5 0.5]);
+%                         xlim([0 size(f2,1)]);
+%                         hold off
+%                         subplot(2,2,3:4);
+%                         plot(xcorr(f1,f2,'none'),...
+%                             'LineWidth',2,'Color',...
+%                             [j/obj.jmax,.5-j/(obj.jmax*2),1-j/obj.jmax]);
+%                         xlim([0 size(f2,1)]*2);
+%                     end
                 end
             end
             close(h);
+            xcorrwindows=xcorrwindows(2*w+1:4*w+1,:,:);
             %Normalise
             %             if normalise
             %                 for i=1:length(xcorrwindows(1,:,1))
@@ -297,7 +316,7 @@ classdef PAF < handle %PAF is a handle class
                 savefig = 1;
             end
             
-            fig=figure('Position', [500, 500, 700, 900]);
+            fig=figure('Position', [500, 500, 640, 790]);
             set(0,'DefaultAxesFontSize', 11)
             
             %profile
@@ -343,7 +362,7 @@ classdef PAF < handle %PAF is a handle class
             %Save figure
             if savefig
             set(gcf,'PaperPositionMode','auto')
-            print(fig,figname,'-dpng','-r300')
+            print(fig,figname,'-dpng','-r0')
             close(fig);
             end
         end

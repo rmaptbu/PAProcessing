@@ -219,28 +219,29 @@ classdef PAF < handle %PAF is a handle class
                     f1=obj.pressure((N+(j-1)*q)-w:(N+(j-1)*q+w)+w,i);
                     f2=[zeros(w,1);...
                         obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i+1);...
-                        zeros(w,1)]; 
+                        zeros(w,1)];
+                    %correct for skewness
                     %Linear fit of f1
                     X=[ones(length(f1),1),[1:length(f1)]'];
                     b=f1'/X'; %b(1) intercept, b(2) gradient
                     f_lin=b(2)*X(:,2);
-                    f1=f1 - f_lin;
-                    f2(w+1:2*w+1)=f2(w+1:2*w+1) - f_lin(w+1:2*w+1);
+                    f1=f1 - .0*f_lin; %0.6 gave decent result in tests
+                    f2(w+1:2*w+1)=f2(w+1:2*w+1) - .0*f_lin(w+1:2*w+1);
                     xcorrwindows(1:6*w+1,(i+1)/2,j)=xcorr(f1,f2,'none');
-                    if i==1 && (j==1 || j==6)
-                        figure;
-                        subplot(2,2,1);hold on;
-                        plot(f1,'LineWidth',2,'Color',[0 0 0]);                        
-                        plot(f2,'LineWidth',2,'Color',[0.5 0.5 0.5]);
-                        plot(f_lin,'LineWidth',2,'Color',[1 0.5 0.0]);
-                        xlim([0 size(f2,1)]);
-                        hold off
-                        subplot(2,2,3:4);
-                        plot(xcorr(f1,f2,'none'),...
-                            'LineWidth',2,'Color',...
-                            [j/obj.jmax,.5-j/(obj.jmax*2),1-j/obj.jmax]);
-                        xlim([0 size(f2,1)]*2);
-                    end
+%                     if i==1 && (j==1 || j==6)
+%                         figure;
+%                         subplot(2,2,1);hold on;
+%                         plot(f1,'LineWidth',2,'Color',[0 0 0]);                        
+%                         plot(f2,'LineWidth',2,'Color',[0.5 0.5 0.5]);
+%                         plot(f_lin,'LineWidth',2,'Color',[1 0.5 0.0]);
+%                         xlim([0 size(f2,1)]);
+%                         hold off
+%                         subplot(2,2,3:4);
+%                         plot(xcorr(f1,f2,'none'),...
+%                             'LineWidth',2,'Color',...
+%                             [j/obj.jmax,.5-j/(obj.jmax*2),1-j/obj.jmax]);
+%                         xlim([0 size(f2,1)]*2);
+%                     end
                 end
             end
             close(h);
@@ -369,9 +370,27 @@ classdef PAF < handle %PAF is a handle class
             %Save figure
             if savefig
             set(gcf,'PaperPositionMode','auto')
-            print(fig,figname,'-dpng','-r0')
+            print(fig,figname,'-dpng','-r150')
             close(fig);
             end
+        end
+        function fig = drawprofile(obj, colour)            
+            dt_w=obj.dt*obj.q; 
+            fig = plot(0:dt_w:dt_w*(size(obj.profile,1)-1),...
+                obj.profile(1:end),'LineWidth',2,'Color', colour);
+            alpha(.5)
+            xlabel('Time (ns)');
+            ylabel('Xcorr Shift (ns)')        
+            xlim([0 dt_w*(size(obj.profile,1)-1)]);
+        end
+        function fig = drawpressure(obj, colour)
+            t=0:obj.dt:(obj.W*obj.dt);
+            fig = plot(t,obj.pressure(obj.N:obj.W+obj.N,2),...
+                'LineWidth',2,'Color',colour);
+            alpha(.5)
+            xlim([0 (obj.W*obj.dt)]);
+            xlabel('Time (ns)');
+            ylabel('Pressure (a.u.)');
         end
     end
 end

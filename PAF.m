@@ -197,7 +197,7 @@ classdef PAF < handle %PAF is a handle class
             obj.shift=shift;
             %SHIFT_ALL=cat(1,SHIFT_ALL,xcorr_peak_pos);
         end
-        function profile = TimeGating(obj, N, q, w, W, normalise, remove_outliers)
+        function profile = TimeGating(obj, N, q, w, W, LW, remove_outliers)
             jmax=W/q;
             obj.N=N;
             obj.q=q;
@@ -211,7 +211,9 @@ classdef PAF < handle %PAF is a handle class
             %assume first pair correlates
             h = waitbar(0, 'Initialising Waitbar');
             xcorr_it_max=size(obj.pressure,2)-1;
+            if LW
             xcorrwindows=zeros(6*w+1,size(obj.pressure,2)/2,jmax);
+            
             for i=1:2:size(obj.pressure,2)-1;
                 msg=['Time Gating: ',num2str(i/xcorr_it_max*100),'%'];
                 waitbar(i/xcorr_it_max,h,msg);
@@ -246,6 +248,20 @@ classdef PAF < handle %PAF is a handle class
             end
             close(h);
             xcorrwindows=xcorrwindows(2*w+1:4*w+1,:,:);
+            else
+                xcorrwindows=zeros(2*w+1,size(obj.pressure,2)/2,jmax);            
+            for i=1:2:size(obj.pressure,2)-1;
+                msg=['Time Gating: ',num2str(i/xcorr_it_max*100),'%'];
+                waitbar(i/xcorr_it_max,h,msg);
+                for j=1:jmax                    
+                    f1=obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i);
+                    f2=obj.pressure((N+(j-1)*q):(N+(j-1)*q+w),i+1);
+                    xcorrwindows(1:2*w+1,(i+1)/2,j)=xcorr(f1,f2,'unbiased');
+                end
+            end
+            close(h);
+
+            end
             %Normalise
             %             if normalise
             %                 for i=1:length(xcorrwindows(1,:,1))
@@ -374,7 +390,7 @@ classdef PAF < handle %PAF is a handle class
             close(fig);
             end
         end
-        function fig = drawprofile(obj, colour)            
+        function fig = drawprofile(obj, colour) 
             dt_w=obj.dt*obj.q; 
             fig = plot(0:dt_w:dt_w*(size(obj.profile,1)-1),...
                 obj.profile(1:end),'LineWidth',2,'Color', colour);
